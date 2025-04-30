@@ -5,32 +5,45 @@ import androidx.lifecycle.viewModelScope
 import com.msa.core.data.network.handler.NetworkResult
 import com.msa.zarpakhsh.domain.entities.User
 import com.msa.zarpakhsh.domain.usecase.LoginUseCase
-import com.msa.zarpakhsh.presentation.viewModel.LoginState.*
+import com.msa.zarpakhsh.domain.usecase.ValidateCredentialsUseCase
+import com.msa.zarpakhsh.domain.usecase.ValidationResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+/**
+ * یک sealed class برای مدیریت حالت‌های مختلف وضعیت لاگین در ViewModel.
+ */
+class AuthViewModel(
+    private val loginUseCase: LoginUseCase,
+    private val validateCredentialsUseCase: ValidateCredentialsUseCase
+) : ViewModel() {
 
-class AuthViewModel(private val loginUseCase: LoginUseCase) : ViewModel() {
+    private val _loginState = MutableStateFlow<NetworkResult<User>>(NetworkResult.Loading)
+    val loginState: StateFlow<NetworkResult<User>> = _loginState
+    private val _validationState = MutableStateFlow<ValidationResult>(ValidationResult.Success)
+    val validationState: StateFlow<ValidationResult> = _validationState
 
-    private val _loginState = MutableStateFlow<LoginState>(LoginState.Idle)
-    val loginState: StateFlow<LoginState> = _loginState
+    fun validateAndLogin(username: String, password: String) {
+        val validationResult = validateCredentialsUseCase(username, password)
+        _validationState.value = validationResult
 
-    fun login(username: String, password: String) {
-        viewModelScope.launch {
-            _loginState.value = LoginState.Loading
-            val result = loginUseCase(username, password)
-            _loginState.value = when (result) {
-                is NetworkResult.Success -> Success(result.data)
-                is NetworkResult.Error -> Error(result.message ?: "خطای ناشناخته")
-                NetworkResult.Loading -> TODO()
-            }
+        if (validationResult is ValidationResult.Success) {
+            // اگر اعتبارسنجی موفقیت‌آمیز بود، عملیات لاگین انجام شود
+            login(username, password)
         }
+    }
+
+    /**
+     * تابع برای اجرای عملیات لاگین.
+     */
+    fun login(username: String, password: String) {
+        loginUseCase(username, password)
+            .onEach { result ->
+                _loginState.value = result
+            }
+            .launchIn(viewModelScope)
     }
 }
 
-sealed class LoginState {
-    object Idle : LoginState()
-    object Loading : LoginState()
-    data class Success(val user: User) : LoginState()
-    data class Error(val message: String) : LoginState()
-}
+

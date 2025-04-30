@@ -1,7 +1,6 @@
 package com.msa.zarpakhsh.data.remote
 
 import com.msa.core.base.BaseRepository
-import com.msa.core.data.network.handler.ErrorHandler.handleNetworkError
 import com.msa.core.data.network.handler.NetworkHandler
 import com.msa.core.data.network.handler.NetworkResult
 import com.msa.core.data.network.model.ApiResponse

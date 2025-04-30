@@ -19,6 +19,7 @@ open class BaseSharedPreferences @JvmOverloads constructor(
     private val gson: Gson = Gson()
 ) {
 
+
     // استفاده از EncryptedSharedPreferences اگر isEncrypted برابر با true باشد
     internal val sharedPreferences: SharedPreferences by lazy {
         if (isEncrypted) {

@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- res/values/fa/strings.xml -->
+<resources>
+    <!-- Network errors -->
+    <string name="error_no_internet">اتصال اینترنت قطع است</string>
+    <string name="error_timeout">زمان درخواست تمام شد</string>
+    <!-- HTTP status codes -->
+    <string name="error_unauthorized">دسترسی غیرمجاز</string>
+    <string name="error_forbidden">دسترسی ممنوع</string>
+    <string name="error_not_found">موردی یافت نشد</string>
+    <string name="error_bad_request">درخواست نامعتبر</string>
+    <string name="error_conflict">درگیری داده‌ای رخ داد</string>
+    <string name="error_unprocessable">دادهٔ ارسالی معتبر نیست</string>
+    <string name="error_server">خطای سرور</string>
+    <string name="error_server_code">خطای سرور (کد: %1$d)</string>
+    <!-- Generic -->
+    <string name="error_unknown">خطای ناشناخته</string>
+    <string name="error_retry">لطفاً دوباره تلاش کنید</string>
+    <string name="error_check_connection">وضعیت اتصال اینترنت خود را بررسی کنید.</string>
+    <!-- Retry remaining -->
+    <plurals name="retry_remaining">
+        <item quantity="one">یک تلاش باقی‌مانده</item>
+        <item quantity="other">%d تلاش باقی‌مانده</item>
+    </plurals>
+
+</resources>

@@ -1,8 +1,7 @@
 package com.msa.zarpakhsh.data.repository
 
-import com.msa.core.base.BaseRepository
+import android.content.Context
 import com.msa.core.data.network.handler.NetworkException
-import com.msa.core.data.network.handler.NetworkHandler
 import com.msa.core.data.network.handler.NetworkResult
 import com.msa.zarpakhsh.data.local.storage.LocalDataSourceAuth
 import com.msa.zarpakhsh.data.models.LoginRequest
@@ -10,56 +9,59 @@ import com.msa.zarpakhsh.data.remote.RemoteDataSourceAuth
 import com.msa.zarpakhsh.domain.entities.User
 import com.msa.zarpakhsh.domain.repository.AuthRepository
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
 
 class AuthRepositoryImpl(
-    networkHandler: NetworkHandler,
-    private val localDataSource: LocalDataSourceAuth,
-    private val remoteDataSource: RemoteDataSourceAuth
-) : BaseRepository(networkHandler), AuthRepository {
+    private val remoteDataSourceAuth: RemoteDataSourceAuth,
+    private val localDataSourceAuth: LocalDataSourceAuth,
+    private val context: Context // تزریق Context از Koin
+) : AuthRepository {
 
-    override suspend fun login(username: String, password: String): User? {
+
+
+    override suspend fun login(username: String, password: String): NetworkResult<User> {
         return try {
-            val response = remoteDataSource.login(LoginRequest(username, password))
-            when (response) {
+            val result = remoteDataSourceAuth.login(LoginRequest(username, password))
+            when (result) {
                 is NetworkResult.Success -> {
-                    val loginResponse = response.data
-                    if (loginResponse != null) {
-                        val user = User(
-                            id = loginResponse.userId,
-                            username = loginResponse.username,
-                            email = loginResponse.email,
-                            token = loginResponse.token
+                    localDataSourceAuth.saveUser(result.data)
+                    NetworkResult.Success(
+                        User(
+                            id = result.data.userId,
+                            username = result.data.username,
+                            email = result.data.email,
+                            token = result.data.token
                         )
-                        localDataSource.saveAuthToken(loginResponse.token)
-                        localDataSource.saveUser(user)
-                        user
-                    } else {
-                        throw NetworkException(-1, "اطلاعات ورود نادرست است.")
-                    }
+                    )
+
                 }
                 is NetworkResult.Error -> {
-                    throw NetworkException(response.exception?.message ?: "خطای ناشناخته")
+                    throw NetworkException.fromStatusCode(result.httpCode, context)
                 }
-                is NetworkResult.Loading -> {
-                    throw NetworkException(-1, "عملیات در حال اجراست.")
-                }
+                else -> NetworkResult.Error.fromException(
+                    Exception("Unexpected error occurred"),
+                    context
+                )
             }
         } catch (e: NetworkException) {
-            throw e
+            NetworkResult.Error.fromException(e, context)
         }
     }
 
-    override suspend fun logout() {
-        try {
-            remoteDataSource.logout()
-        } catch (e: Exception) {
-            // در صورت نیاز می‌تونی لاگ بگیری ولی نذار جلوی حذف سشن محلی رو بگیره
-        } finally {
-
+    override suspend fun logout(): NetworkResult<Unit> {
+        return try {
+            remoteDataSourceAuth.logout()
+            NetworkResult.Success(Unit)
+        } catch (e: NetworkException) {
+            NetworkResult.Error.fromException(e, context)
         }
     }
 
-    override fun isLoggedIn(): Flow<Boolean> {
-        return localDataSource.isLoggedIn()
+    override fun isLoggedIn(): Flow<Boolean> = flow {
+        // بررسی وضعیت ورود کاربر (مثلاً از SharedPreferences یا TokenManager)
+        val isLoggedIn = true // TODO: Check from SharedPreferences or TokenManager
+        emit(isLoggedIn)
     }
 }

@@ -1,151 +1,182 @@
 package com.msa.core.data.network.handler
 
-import android.util.Log // استفاده از Log استاندارد اندروید
-import io.ktor.client.HttpClient
+import android.content.Context
+import com.msa.core.data.network.model.NetworkConfig
+import io.ktor.client.*
 import io.ktor.client.call.body
 import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.* // شامل ContentNegotiation, HttpTimeout
-import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
-import io.ktor.client.plugins.logging.* // شامل Logging, LogLevel, Logger
-import io.ktor.client.plugins.observer.ResponseObserver
+import io.ktor.client.plugins.*
+import io.ktor.client.plugins.auth.*
+import io.ktor.client.plugins.auth.providers.*
+import io.ktor.client.plugins.cache.*
+import io.ktor.client.plugins.contentnegotiation.*
+import io.ktor.client.plugins.logging.*
 import io.ktor.client.request.*
-import io.ktor.http.ContentType
-import io.ktor.http.HttpHeaders
-import io.ktor.http.contentType
-import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import io.ktor.http.*
+import io.ktor.serialization.kotlinx.json.*
+import kotlinx.coroutines.*
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
-import java.io.IOException // Import necessary exceptions
-import kotlinx.coroutines.TimeoutCancellationException
-/**
- * یک شیء Singleton برای مدیریت و پیکربندی HttpClient Ktor و انجام درخواست‌های شبکه.
- * مسئول اجرای درخواست‌ها و کپسوله کردن نتیجه در NetworkResult است.
- */
+import timber.log.Timber
+import java.io.IOException
+import kotlin.math.pow
+import io.ktor.client.plugins.cache.* // اضافه کنید
+import io.ktor.client.plugins.cache.storage.* // برای HttpCacheStorage
+import io.ktor.client.*
+import io.ktor.client.engine.cio.*
+import io.ktor.client.plugins.cache.*
+import io.ktor.client.plugins.cache.storage.CacheStorage
+import java.util.Locale
+import io.ktor.client.plugins.cache.HttpCache
+import org.koin.core.component.KoinComponent
+import org.koin.core.component.inject
+
 object NetworkHandler {
 
-    /**
-     * HttpClient با تنظیمات پیشرفته.
-     */
-    private val httpClient = HttpClient(OkHttp) {
-        // Serializer برای تبدیل JSON با Kotlinx Serialization
-        install(ContentNegotiation) {
-            json(
-                Json {
-                    prettyPrint = true // فرمت دهی زیبای JSON در لاگ
-                    isLenient = true // انعطاف پذیری بیشتر در خواندن JSON
-                    ignoreUnknownKeys = true // نادیده گرفتن فیلدهای ناشناخته در JSON
-                    encodeDefaults = false // عدم نمایش مقادیر پیش‌فرض در خروجی JSON
-                }
-            )
-        }
+    private lateinit var appContext: Context
+    private val tokenMutex = Mutex()
+    private var config = NetworkConfig.DEFAULT
+    private var authToken: String? = null // ✅ متغیر ذخیره توکن
 
-        // لاگ‌گیری برای Debugging
-        install(Logging) {
-            logger = object : Logger {
-                override fun log(message: String) {
-                    Log.v("NetworkHandler", message) // استفاده از Log.v برای جزئیات بیشتر
+    fun initialize(context: Context, config: NetworkConfig = NetworkConfig.DEFAULT) {
+        appContext = context.applicationContext
+        this.config = config // ذخیره تنظیمات
+    }
+
+    val client: HttpClient by lazy {
+        HttpClient(OkHttp) {
+            // 1. پیکربندی JSON
+            install(ContentNegotiation) {
+                json(Json {
+                    prettyPrint = true
+                    isLenient = true
+                    ignoreUnknownKeys = true
+                })
+            }
+
+            // 2. لاگ‌گیری ساختارمند
+            install(Logging) {
+                logger = object : Logger {
+                    override fun log(message: String) {
+                        when {
+                            message.startsWith("{") || message.startsWith("[") ->
+                                Timber.tag("ResponseBody").v(message)
+
+                            message.startsWith("HTTP/") ->
+                                Timber.tag("HTTP_Status").d(message)
+
+                            else ->
+                                Timber.tag("Network").v(message)
+                        }
+                    }
+                }
+                level = LogLevel.ALL
+            }
+
+            // 3. مدیریت Timeout با مقادیر پیکربندی
+            install(HttpTimeout) {
+                connectTimeoutMillis = config.connectTimeout
+                socketTimeoutMillis = config.socketTimeout
+                requestTimeoutMillis = config.requestTimeout
+            }
+
+            // 4. Retry Policy با Exponential Backoff (فقط برای خطاهای قابل تلاش)
+            install(HttpRequestRetry) {
+                maxRetries = config.maxRetries
+                retryIf { _, cause ->
+                    when {
+                        cause is NetworkException -> cause.isRetryable()
+                        cause is IOException -> true // خطاهای شبکه عمومی
+                        cause is TimeoutCancellationException -> true // خطاهای تایم‌آوت
+                        else -> false
+                    }
+                }
+                delayMillis { attempt -> (1000 * 2.0.pow(attempt.toDouble())).toLong() }
+            }
+
+            install(Auth) {
+                bearer {
+                    loadTokens {
+                        BearerTokens(
+                            accessToken = authToken ?: "",
+                            refreshToken = "" // اگر از ریفرش توکن استفاده می‌کنید
+                        )
+                    }
+                    sendWithoutRequest { request ->
+                        // توکن را در همه درخواست‌ها ارسال کن
+                        !request.url.encodedPath.contains("token") // جلوگیری از ارسال توکن در درخواست‌های مربوط به توکن
+                    }
                 }
             }
-            level = LogLevel.ALL // لاگ‌گیری همه جزئیات شامل Header, Body و ...
-        }
+            install(HttpCache) {
+                publicStorage(CacheStorage.Unlimited()) // ✅ استفاده از CacheStorage جدید
+            }
+            engine {
+                addInterceptor { chain ->
+                    val originalRequest = chain.request()
+                    val newRequest = originalRequest.newBuilder()
+                        .header("Accept-Language", appContext.getLanguageCode())
+                        .apply {
+                            authToken?.let { token ->
+                                header("Authorization", "Bearer $token") // استفاده از header به جای addHeader
+                            }
+                        }
+                        .build()
+                    chain.proceed(newRequest) // فقط یک بار proceed فراخوانی شود
+                }
+                // CertificatePinner.Builder()
+                //     .add("api.example.com", "sha256/ABC123...")
+                //     .build()
+            }
 
-        // مدیریت Timeout
-        install(HttpTimeout) { // استفاده از HttpTimeout از plugins.*
-            requestTimeoutMillis = 15_000L // 15 ثانیه برای کل درخواست
-            connectTimeoutMillis = 15_000L // 15 ثانیه برای اتصال
-            socketTimeoutMillis = 15_000L // 15 ثانیه برای خواندن/نوشتن داده
-        }
-
-        // مشاهده وضعیت پاسخ‌ها (اختیاری برای لاگ‌گیری یا بررسی سریع وضعیت)
-        install(ResponseObserver) {
-            onResponse { response ->
-                Log.d("HTTP Status", "${response.status.value}")
-                // می‌توانید منطق بیشتری برای بررسی کد وضعیت HTTP اینجا اضافه کنید
-                // مثلاً برای خطاهای 401 Unauthorized
+            // 9. تبدیل کدهای HTTP به استثنا
+            HttpResponseValidator {
+                validateResponse { response ->
+                    if (response.status.value !in 200..299) {
+                        throw NetworkException.fromStatusCode(response.status.value, appContext)
+                    }
+                }
             }
         }
-
-        // Headerهای مشترک برای همه درخواست‌ها
-        defaultRequest {
-            contentType(ContentType.Application.Json)
-            accept(ContentType.Application.Json) // پذیرش پاسخ با فرمت JSON
-            // headers.append(HttpHeaders.Authorization, "Bearer your_token") // مثال: اضافه کردن توکن احراز هویت
-        }
-
-        // مدیریت خطاهای پاسخ HTTP (مانند کدهای 4xx, 5xx)
-        // این یک راه برای تبدیل خودکار کدهای وضعیت به استثناء است
-        // install(HttpBadResponseStatus) // می تواند استثناء های HttpStatusCodeException را پرتاب کند
     }
 
     /**
-     * تابع عمومی برای دسترسی به HttpClient.
-     * اگر نیاز به پیکربندی‌های خاص در لایه‌های دیگر دارید، می‌توانید از این تابع استفاده کنید.
+     * تابع مرکزی برای انجام درخواست‌های امن
      */
-    fun getHttpClient(): HttpClient {
-        return httpClient
-    }
+    suspend fun <T> safeApiCall(
+        apiCall: suspend () -> T
+    ): NetworkResult<T> {
+        require(::appContext.isInitialized) { "NetworkHandler.initialize() must be called first" }
 
-    /**
-     * تابع مرکزی برای انجام درخواست‌های شبکه و مدیریت خطاهای احتمالی به صورت ایمن.
-     * این تابع هر بلاک کدی که یک درخواست شبکه را انجام می‌دهد می‌پذیرد و نتیجه را در NetworkResult کپسوله می‌کند.
-     */
-    suspend fun <T> safeApiCall(apiCall: suspend () -> T): NetworkResult<T> {
         return try {
             withContext(Dispatchers.IO) {
-                val response = apiCall()
-                NetworkResult.Success(response)
+                NetworkResult.Success(apiCall())
             }
-        } catch (exception: Exception) { // Catching broad Exception - Consider catching more specific types
-            Log.e("NetworkHandler", "Error occurred during safeApiCall: ${exception.message}")
-            // ارسال Exception به ErrorHandler برای پردازش و ایجاد NetworkResult.Error
-            ErrorHandler.handleNetworkError(exception)
+        } catch (e: Exception) {
+            Timber.e(e, "API call failed after retries")
+            NetworkResult.Error.fromException(e, appContext)
         }
     }
 
-    // توابع کمکی برای درخواست‌های HTTP مختلف که از safeApiCall استفاده می‌کنند
-    // از inline و reified استفاده می‌شود تا بتوان نوع T را در زمان کامپایل مشخص کرد و از body<T>() استفاده نمود.
+    // متدهای HTTP پوشش داده شده
+    suspend inline fun <reified T> get(url: String) = safeApiCall { client.get(url).body<T>() }
+    suspend inline fun <reified T> post(url: String, body: Any) =
+        safeApiCall { client.post(url) { setBody(body) }.body<T>() }
 
-    /**
-     * تابعی برای انجام درخواست GET.
-     */
-    suspend inline fun <reified T> getRequest(url: String): NetworkResult<T> {
-        return safeApiCall {
-            getHttpClient().get(url).body<T>() // استفاده از body<T>() برای دریافت بدنه پاسخ به صورت مدل T
-        }
-    }
+    suspend inline fun <reified T> put(url: String, body: Any) =
+        safeApiCall { client.put(url) { setBody(body) }.body<T>() }
 
-    /**
-     * تابعی برای انجام درخواست POST.
-     */
-    suspend inline fun <reified T> postRequest(url: String, body: Any): NetworkResult<T> {
-        return safeApiCall {
-            getHttpClient().post(url) {
-                setBody(body) // تنظیم بدنه درخواست
-            }.body<T>()
-        }
-    }
+    suspend inline fun <reified T> delete(url: String) =
+        safeApiCall { client.delete(url).body<T>() }
 
-    /**
-     * تابعی برای انجام درخواست PUT.
-     */
-    suspend inline fun <reified T> putRequest(url: String, body: Any): NetworkResult<T> {
-        return safeApiCall {
-            getHttpClient().put(url) {
-                setBody(body)
-            }.body<T>()
-        }
-    }
+    suspend inline fun <reified T> patch(url: String, body: Any) =
+        safeApiCall { client.patch(url) { setBody(body) }.body<T>() }
 
-    /**
-     * تابعی برای انجام درخواست DELETE.
-     * فرض بر این است که پاسخ DELETE نیازی به بدنه خاصی ندارد (T=Unit).
-     */
-    suspend inline fun <reified T> deleteRequest(url: String): NetworkResult<T> {
-        return safeApiCall {
-            getHttpClient().delete(url).body<T>()
-        }
-    }
+    suspend inline fun <reified T> head(url: String) = safeApiCall { client.head(url).body<T>() }
+}
 
-    // می توانید توابع دیگری برای PATCH, HEAD و ... اضافه کنید
+
+fun Context.getLanguageCode(): String {
+    return Locale.getDefault().language // مثال: "fa" یا "en"
 }

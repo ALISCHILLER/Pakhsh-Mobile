@@ -1,5 +1,6 @@
 package com.msa.zarpakhsh.domain.repository
 
+import com.msa.core.data.network.handler.NetworkResult
 import com.msa.zarpakhsh.domain.entities.User
 import kotlinx.coroutines.flow.Flow
 
@@ -15,13 +16,13 @@ interface AuthRepository {
      * یا در صورت خطای قابل توجه، استثناء پرتاب می‌کند.
      */
     @Throws(com.msa.core.data.network.handler.NetworkException::class) // اعلام اینکه ممکن است NetworkException پرتاب شود
-    suspend fun login(username: String, password: String): User?
+    suspend fun login(username: String, password: String): NetworkResult<User>
 
     /**
      * عملیات خروج کاربر.
      */
     @Throws(com.msa.core.data.network.handler.NetworkException::class)
-    suspend fun logout()
+    suspend fun logout(): NetworkResult<Unit> ?
 
     /**
      * بررسی وضعیت ورود کاربر به صورت یک Flow.

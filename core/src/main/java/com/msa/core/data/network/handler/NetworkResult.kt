@@ -1,22 +1,47 @@
 package com.msa.core.data.network.handler
 
+import android.content.Context
+import com.msa.core.R
+import com.msa.core.data.network.model.ApiResponse
+import kotlinx.coroutines.TimeoutCancellationException
+import timber.log.Timber
+import java.io.IOException
+
 /**
- * یک sealed class برای مدیریت وضعیت‌های مختلف عملیات‌های غیرهمزمان.
+ * کلاس sealed برای مدیریت وضعیت‌های مختلف درخواست‌های شبکه.
  */
 sealed class NetworkResult<out T> {
-
-    /**
-     * وضعیت موفقیت‌آمیز: شامل داده‌ها که از API یا منبع داده دیگر برگشته است.
-     */
-    data class Success<out T>(val data: T) : NetworkResult<T>()
-
-    /**
-     * وضعیت خطا: شامل پیغام خطا یا استثناء که در زمان انجام عملیات رخ داده است.
-     */
-    data class Error(val exception: Throwable? = null, val message: String? = null) : NetworkResult<Nothing>()
-
-    /**
-     * وضعیت در حال بارگذاری: برای نشان دادن اینکه عملیات در حال اجراست.
-     */
     object Loading : NetworkResult<Nothing>()
+    object Idle : NetworkResult<Nothing>()
+    data class Success<out T>(val data: T) : NetworkResult<T>()
+    data class Error(
+        val exception: Throwable,
+        val message: String,
+        val httpCode: Int,
+        val retryCount: Int
+    ) : NetworkResult<Nothing>() {
+
+        val canRetry: Boolean
+            get() = exception is NetworkException && exception.errorCode.shouldRetry
+
+        companion object {
+            fun fromException(exception: Throwable, context: Context): Error {
+                val networkEx = when (exception) {
+                    is NetworkException -> exception
+                    is IOException -> NetworkException.fromStatusCode(0, context, exception)
+                    is TimeoutCancellationException -> NetworkException.fromStatusCode(408, context, exception)
+                    else -> {
+                        Timber.e(exception, "Unhandled exception occurred: ${exception.message}")
+                        NetworkException.fromStatusCode(-1, context, exception)
+                    }
+                }
+                return Error(
+                    exception = networkEx,
+                    message = networkEx.message ?: context.getString(R.string.error_unknown),
+                    httpCode = networkEx.httpStatus,
+                    retryCount = networkEx.retryCount
+                )
+            }
+        }
+    }
 }

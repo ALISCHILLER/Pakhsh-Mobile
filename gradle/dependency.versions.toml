@@ -33,6 +33,12 @@ ktor-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
 ktor-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
 ktor-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
 ktor-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
+ktor-core          = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
+ktor-auth          = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
+ktor-cache         = { module = "io.ktor:ktor-client-cache-jvm", version.ref = "ktor" }
+ktor-resources     = { module = "io.ktor:ktor-client-resources", version.ref = "ktor" }
+# اختیاری:
+ktor-websockets    = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
 
 #coroutines
 coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }

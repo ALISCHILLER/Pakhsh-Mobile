@@ -80,7 +80,11 @@ dependencies {
     implementation(dependency.ktor.negotiation)
     implementation(dependency.ktor.json)
     implementation(dependency.ktor.okhttp)
-
+    implementation(dependency.ktor.auth)
+    implementation(dependency.ktor.core)
+    implementation(dependency.ktor.resources)
+    implementation("io.ktor:ktor-client-core:3.1.2")
+    implementation("io.ktor:ktor-client-cio:3.1.2")
     //coroutines
     implementation(dependency.coroutines.android)
     // log  timber

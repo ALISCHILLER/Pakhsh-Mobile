@@ -15,28 +15,28 @@ abstract class BaseRepository(val networkHandler: NetworkHandler) {
     // بلکه RemoteDataSource دارد که آن RemoteDataSource از NetworkHandler استفاده می کند.
 
     // مثال: اگر بخواهید توابع safeRequest را در BaseRepository داشته باشید:
-    suspend inline fun <reified T> safeGetRequest(url: String): NetworkResult<T> {
-        return networkHandler.getRequest(url)
+    protected suspend inline fun <reified T> safeGetRequest(url: String): NetworkResult<T> {
+        return networkHandler.get(url)
     }
 
     /**
      * تابع عمومی برای انجام درخواست POST.
      */
-    suspend inline fun <reified T> safePostRequest(url: String, body: Any): NetworkResult<T> {
-        return networkHandler.postRequest(url, body)
+    protected suspend inline fun <reified T> safePostRequest(url: String, body: Any): NetworkResult<T> {
+        return networkHandler.post(url, body)
     }
 
     /**
      * تابع عمومی برای انجام درخواست PUT.
      */
     protected suspend inline fun <reified T> safePutRequest(url: String, body: Any): NetworkResult<T> {
-        return networkHandler.putRequest(url, body)
+        return networkHandler.put(url, body)
     }
 
     /**
      * تابع عمومی برای انجام درخواست DELETE.
      */
     protected suspend fun safeDeleteRequest(url: String): NetworkResult<Unit> {
-        return networkHandler.deleteRequest(url)
+        return networkHandler.delete(url)
     }
 }

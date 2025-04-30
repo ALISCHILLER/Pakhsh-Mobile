@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- عنوان‌ها -->
+    <string name="login_title">ورود به حساب کاربری</string>
+    <string name="register_title">ثبت‌نام</string>
+
+    <!-- فیلدهای ورودی -->
+    <string name="username">نام کاربری</string>
+    <string name="password">رمز عبور</string>
+    <string name="email">ایمیل</string>
+
+    <!-- دکمه‌ها -->
+    <string name="login_button">ورود</string>
+    <string name="register_button">ثبت ‌نام</string>
+    <string name="logout_button">خروج</string>
+
+    <!-- پیوندها -->
+    <string name="register_link">حساب کاربری ندارید؟ ثبت‌نام کنید</string>
+    <string name="forgot_password_link">رمز عبور خود را فراموش کرده‌اید؟</string>
+
+    <!-- پیام‌های موفقیت -->
+    <string name="login_success">ورود با موفقیت انجام شد.</string>
+    <string name="register_success">ثبت‌نام با موفقیت انجام شد.</string>
+    <string name="logout_success">خروج با موفقیت انجام شد.</string>
+
+    <!-- پیام‌های خطا -->
+    <string name="error_unknown">خطای ناشناخته رخ داده است.</string>
+    <string name="error_no_internet">اتصال اینترنت وجود ندارد.</string>
+    <string name="error_timeout">درخواست زمان‌بندی شما منقضی شد.</string>
+    <string name="error_bad_request">درخواست نامعتبر است.</string>
+    <string name="error_unauthorized">دسترسی غیرمجاز. لطفاً دوباره وارد شوید.</string>
+    <string name="error_forbidden">دسترسی به این منبع ممنوع است.</string>
+    <string name="error_not_found">منبع درخواستی یافت نشد.</string>
+    <string name="error_conflict">درخواست شما با منابع موجود در تعارض است.</string>
+    <string name="error_unprocessable">داده‌های ارسالی قابل پردازش نیستند.</string>
+    <string name="error_server">خطای سرور رخ داده است.</string>
+
+    <!-- اعتبارسنجی -->
+    <string name="validation_error_username_empty">نام کاربری نمی‌تواند خالی باشد.</string>
+    <string name="validation_error_password_empty">رمز عبور نمی‌تواند خالی باشد.</string>
+    <string name="validation_error_password_length">رمز عبور باید حداقل ۶ کاراکتر باشد.</string>
+
+    <!-- تعداد تلاش‌های مجدد -->
+    <plurals name="retry_remaining">
+        <item quantity="one">%d تلاش مجدد باقی مانده است.</item>
+        <item quantity="other">%d تلاش مجدد باقی مانده است.</item>
+    </plurals>
+
+    <!-- وضعیت‌های عمومی -->
+    <string name="loading">در حال بارگذاری...</string>
+    <string name="idle_message">آماده‌ایم...</string>
+</resources>

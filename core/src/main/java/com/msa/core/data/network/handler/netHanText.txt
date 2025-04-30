@@ -1,0 +1,39 @@
+            // 5. احراز هویت با Bearer Token و Refresh Token
+//            install(Auth) {
+//                bearer {
+//                    loadTokens {
+//                        BearerTokens(
+//                            TokenStorage.getAccessToken(),
+//                            TokenStorage.getRefreshToken()
+//                        )
+//                    }
+//                    refreshTokens {
+//                        tokenMutex.withLock {
+//                            val response = client.post("/auth/refresh") {
+//                                setBody(RefreshTokenRequest(TokenStorage.getRefreshToken()))
+//                            }.body<RefreshTokenResponse>()
+//                            TokenStorage.saveTokens(response.accessToken, response.refreshToken)
+//                            BearerTokens(response.accessToken, response.refreshToken)
+//                        }
+//                    }
+//                    sendWithoutRequest { request ->
+//                        !request.url.pathSegments.contains("public") // جلوگیری از ارسال توکن به Endpoints عمومی
+//                    }
+//                }
+//            }
+
+
+           // 8. Headerهای پیش‌فرض
+//            defaultRequest {
+//                contentType(ContentType.Application.Json)
+//                accept(ContentType.Application.Json)
+//                header(HttpHeaders.Authorization, "Bearer ${TokenStorage.getAccessToken()}")
+//            }
+
+
+            // 6. Cache برای GET (بهبود عملکرد)
+//            install(HttpCache) {
+//                storage = CacheStorage.Unlimited()
+//            }
+
+            // 7. Certificate Pinning (ضروری برای امنیت)
