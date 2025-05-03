@@ -32,3 +32,6 @@ rootProject.name = "ZarPakhsh-Mobile"
 include(":app")
 include(":core")
 include(":zarPakhsh")
+include(":zarVisitApp")
+include(":zarDistributeApp")
+include(":zarSupervisorApp")

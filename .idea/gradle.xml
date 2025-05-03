@@ -12,7 +12,10 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/core" />
+            <option value="$PROJECT_DIR$/zarDistributeApp" />
             <option value="$PROJECT_DIR$/zarPakhsh" />
+            <option value="$PROJECT_DIR$/zarSupervisorApp" />
+            <option value="$PROJECT_DIR$/zarVisitApp" />
           </set>
         </option>
       </GradleProjectSettings>

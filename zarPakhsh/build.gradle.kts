@@ -5,12 +5,13 @@ plugins {
 }
 
 android {
-    namespace = "com.msa.zarpakhsh"
+    namespace = "com.zar.zarpakhsh"
     compileSdk = 35
+
+
 
     defaultConfig {
         minSdk = 27
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }

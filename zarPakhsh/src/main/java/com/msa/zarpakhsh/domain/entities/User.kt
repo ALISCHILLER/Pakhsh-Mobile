@@ -7,5 +7,5 @@ data class User(
     val id: String,
     val username: String,
     val email: String,
-    val token: String? = null // توکن احراز هویت
+    val token: String  // توکن احراز هویت
 )

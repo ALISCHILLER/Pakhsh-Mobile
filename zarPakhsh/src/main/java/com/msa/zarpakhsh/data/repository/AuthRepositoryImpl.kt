@@ -4,6 +4,7 @@ import android.content.Context
 import com.msa.core.data.network.handler.NetworkException
 import com.msa.core.data.network.handler.NetworkResult
 import com.msa.zarpakhsh.data.local.storage.LocalDataSourceAuth
+import com.msa.zarpakhsh.data.mappers.toUser
 import com.msa.zarpakhsh.data.models.LoginRequest
 import com.msa.zarpakhsh.data.remote.RemoteDataSourceAuth
 import com.msa.zarpakhsh.domain.entities.User
@@ -26,7 +27,7 @@ class AuthRepositoryImpl(
             val result = remoteDataSourceAuth.login(LoginRequest(username, password))
             when (result) {
                 is NetworkResult.Success -> {
-                    localDataSourceAuth.saveUser(result.data)
+                    localDataSourceAuth.saveUser(result.data.toUser())
                     NetworkResult.Success(
                         User(
                             id = result.data.userId,

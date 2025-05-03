@@ -32,7 +32,7 @@ class LocalDataSourceAuth(
         val username = sharedPreferences.getString(PrefKey.UserName.key, "")
         val token = sharedPreferences.getString(PrefKey.Token.key, "")
         return if (username.isNotEmpty() && token.isNotEmpty()) {
-            User(username = username, token = token)
+            User(username = username, token = token, id = "", email = "")
         } else {
             null
         }

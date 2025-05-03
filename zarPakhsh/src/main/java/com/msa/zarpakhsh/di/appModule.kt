@@ -10,6 +10,6 @@ val appModule = listOf(
     utilsModule,
     viewModelModule,
     repositoryModule,
-    useCaseModule
-
+    useCaseModule,
+    dataLocalModule
 )
