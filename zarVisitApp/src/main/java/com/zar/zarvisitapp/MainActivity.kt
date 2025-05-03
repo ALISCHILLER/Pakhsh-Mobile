@@ -1,6 +1,7 @@
 package com.zar.zarvisitapp
 
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -11,9 +12,12 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
+import com.zar.zarpakhsh.BuildConfig
+import com.zar.zarpakhsh.utils.config.AppConfigZar
 import com.zar.zarvisitapp.ui.theme.ZarPakhshMobileTheme
-
+import org.koin.core.component.inject
 class MainActivity : ComponentActivity() {
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -24,6 +28,8 @@ class MainActivity : ComponentActivity() {
                         name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
+                    val appConfig = AppConfigZar
+                    Log.e("MainActivity", "onCreate: ${appConfig.appFlavor}")
                 }
             }
         }

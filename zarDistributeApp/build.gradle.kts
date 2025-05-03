@@ -17,7 +17,15 @@ android {
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
+    flavorDimensions += "appType"
+    productFlavors {
+        create("distribute") {
+            dimension = "appType"
+            applicationId = "com.zar.zardistributeapp"
+            buildConfigField("String", "APP_FLAVOR", "\"distribute\"")
+        }
 
+    }
     buildTypes {
         release {
             isMinifyEnabled = false
@@ -36,6 +44,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true // ⬅️ این خط مهمه
     }
 }
 
@@ -56,4 +65,11 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(project(":zarPakhsh"))
+    implementation(project(":core"))
+
+    //di koin
+    implementation(dependency.koin.androidx.compose)
+    implementation(dependency.koin.test)
+    testImplementation(dependency.koin.android.test)
 }

@@ -2,6 +2,7 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+    id("com.google.devtools.ksp")
 }
 
 android {
@@ -16,6 +17,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+    flavorDimensions += "appType"
+    productFlavors {
+        create("supervisor") {
+            dimension = "appType"
+            applicationId = "com.zar.zarsupervisorapp"
+            buildConfigField("String", "APP_FLAVOR", "\"supervisor\"")
+        }
+
     }
 
     buildTypes {
@@ -36,6 +46,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true // ⬅️ این خط مهمه
     }
 }
 
@@ -56,4 +67,11 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(project(":zarPakhsh"))
+    implementation(project(":core"))
+
+    //di koin
+    implementation(dependency.koin.androidx.compose)
+    implementation(dependency.koin.test)
+    testImplementation(dependency.koin.android.test)
 }
