@@ -12,19 +12,20 @@ import java.io.IOException
 sealed class NetworkResult<out T> {
     object Loading : NetworkResult<Nothing>()
     object Idle : NetworkResult<Nothing>()
-    data class Success<out T>(val data: T) : NetworkResult<T>()
+    data class Success<out T>(val data: T, val step: String? = null) : NetworkResult<T>()
+
+    // استفاده از یک کلاس Error یکپارچه برای همه اطلاعات خطا
     data class Error(
         val exception: Throwable,
         val message: String,
         val httpCode: Int,
-        val retryCount: Int
+        val retryCount: Int,
+        val step: String? = null, // در صورت نیاز به گام‌ها می‌توانید این را اضافه کنید
+        val canRetry: Boolean = exception is NetworkException && exception.errorCode.shouldRetry
     ) : NetworkResult<Nothing>() {
 
-        val canRetry: Boolean
-            get() = exception is NetworkException && exception.errorCode.shouldRetry
-
         companion object {
-            fun fromException(exception: Throwable, context: Context): Error {
+            fun fromException(exception: Throwable, context: Context, step: String? = null): Error {
                 val networkEx = when (exception) {
                     is NetworkException -> exception
                     is IOException -> NetworkException.fromStatusCode(0, context, exception)
@@ -38,9 +39,11 @@ sealed class NetworkResult<out T> {
                     exception = networkEx,
                     message = networkEx.message ?: context.getString(R.string.error_unknown),
                     httpCode = networkEx.httpStatus,
-                    retryCount = networkEx.retryCount
+                    retryCount = networkEx.retryCount,
+                    step = step // اگر گام‌ها را نیاز دارید، اینجا استفاده کنید
                 )
             }
         }
     }
 }
+

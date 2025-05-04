@@ -26,6 +26,7 @@ class AuthRepositoryImpl(
             when (result) {
                 is NetworkResult.Success -> {
                     localDataSourceAuth.saveUser(result.data.toUser())
+                    localDataSourceAuth.setIsLoggedIn(true)
                     NetworkResult.Success(
                         User(
                             id = result.data.userId,
@@ -34,7 +35,6 @@ class AuthRepositoryImpl(
                             token = result.data.token
                         )
                     )
-
                 }
                 is NetworkResult.Error -> {
                     throw NetworkException.fromStatusCode(result.httpCode, context)
@@ -60,7 +60,7 @@ class AuthRepositoryImpl(
 
     override fun isLoggedIn(): Flow<Boolean> = flow {
         // بررسی وضعیت ورود کاربر (مثلاً از SharedPreferences یا TokenManager)
-        val isLoggedIn = true // TODO: Check from SharedPreferences or TokenManager
+        val isLoggedIn = localDataSourceAuth.getIsLoggedIn() // TODO: Check from SharedPreferences or TokenManager
         emit(isLoggedIn)
     }
 }

@@ -13,7 +13,6 @@ val appModule = module {
             viewModelModule,
             repositoryModule,
             useCaseModule,
-            dataLocalModule
         )
     )
 }

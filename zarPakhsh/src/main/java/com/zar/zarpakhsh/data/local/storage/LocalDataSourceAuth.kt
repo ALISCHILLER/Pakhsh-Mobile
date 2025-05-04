@@ -72,4 +72,8 @@ class LocalDataSourceAuth(
     fun getIsLoggedIn(): Boolean {
         return sharedPreferences.getBoolean(PrefKey.IsLoggedIn.key, false)
     }
+
+    fun clearAll() {
+        sharedPreferences.clearAll()
+    }
 }
