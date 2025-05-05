@@ -6,5 +6,8 @@ import org.koin.dsl.module
 
 val repositoryModule = module {
     // Singleton برای AuthRepositoryImpl
-    single<AuthRepository> { AuthRepositoryImpl(get(),get(),get()) }
+    // AuthRepository
+    factory<AuthRepository> {
+        AuthRepositoryImpl(get())
+    }
 }

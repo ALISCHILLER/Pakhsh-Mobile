@@ -6,7 +6,7 @@ import org.koin.dsl.module
 
 val  useCaseModule = module {
 
-    factory { LoginUseCase(get(), get()) }
+    factory { LoginUseCase(get()) }
     factory { ValidateCredentialsUseCase(get()) }
 
 }

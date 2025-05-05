@@ -1,173 +1,88 @@
 package com.zar.core.data.network.handler
 
 import android.content.Context
-import com.zar.core.data.network.model.NetworkConfig
-import io.ktor.client.*
-import io.ktor.client.call.body
+import com.zar.core.R
+import com.zar.core.data.network.error.*
+import com.zar.core.data.network.model.ApiResponse
+import com.zar.core.data.network.utils.NetworkStatusMonitor
+import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
-import io.ktor.client.plugins.*
-import io.ktor.client.plugins.auth.*
-import io.ktor.client.plugins.auth.providers.*
-import io.ktor.client.plugins.contentnegotiation.*
-import io.ktor.client.plugins.logging.*
-import io.ktor.client.request.*
-import io.ktor.http.*
-import io.ktor.serialization.kotlinx.json.*
+import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.client.plugins.defaultRequest
+import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.*
-import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.flow.first
 import kotlinx.serialization.json.Json
 import timber.log.Timber
-import java.io.IOException
-import kotlin.math.pow
-import io.ktor.client.plugins.cache.storage.CacheStorage
-import java.util.Locale
-import io.ktor.client.plugins.cache.HttpCache
 
 object NetworkHandler {
-
     private lateinit var appContext: Context
-    private val tokenMutex = Mutex()
-    private var config = NetworkConfig.DEFAULT
-    private var authToken: String? = null // ✅ متغیر ذخیره توکن
+    private lateinit var networkMonitor: NetworkStatusMonitor
+    private lateinit var client: HttpClient
 
-    fun initialize(context: Context, config: NetworkConfig = NetworkConfig.DEFAULT) {
+    fun initialize(context: Context, monitor: NetworkStatusMonitor) {
         appContext = context.applicationContext
-        this.config = config // ذخیره تنظیمات
+        networkMonitor = monitor
+        client = createHttpClient("https://api.example.com")
     }
 
-    val client: HttpClient by lazy {
-        HttpClient(OkHttp) {
-            // 1. پیکربندی JSON
-            install(ContentNegotiation) {
-                json(Json {
-                    prettyPrint = true
-                    isLenient = true
-                    ignoreUnknownKeys = true
-                })
-            }
-
-            // 2. لاگ‌گیری ساختارمند
-            install(Logging) {
-                logger = object : Logger {
-                    override fun log(message: String) {
-                        when {
-                            message.startsWith("{") || message.startsWith("[") ->
-                                Timber.tag("ResponseBody").v(message)
-
-                            message.startsWith("HTTP/") ->
-                                Timber.tag("HTTP_Status").d(message)
-
-                            else ->
-                                Timber.tag("Network").v(message)
-                        }
-                    }
-                }
-                level = LogLevel.ALL
-            }
-
-            // 3. مدیریت Timeout با مقادیر پیکربندی
-            install(HttpTimeout) {
-                connectTimeoutMillis = config.connectTimeout
-                socketTimeoutMillis = config.socketTimeout
-                requestTimeoutMillis = config.requestTimeout
-            }
-
-            // 4. Retry Policy با Exponential Backoff (فقط برای خطاهای قابل تلاش)
-            install(HttpRequestRetry) {
-                maxRetries = config.maxRetries
-                retryIf { _, cause ->
-                    when {
-                        cause is NetworkException -> cause.isRetryable()
-                        cause is IOException -> true // خطاهای شبکه عمومی
-                        cause is TimeoutCancellationException -> true // خطاهای تایم‌آوت
-                        else -> false
-                    }
-                }
-                delayMillis { attempt -> (1000 * 2.0.pow(attempt.toDouble())).toLong() }
-            }
-
-            install(Auth) {
-                bearer {
-                    loadTokens {
-                        BearerTokens(
-                            accessToken = authToken ?: "",
-                            refreshToken = "" // اگر از ریفرش توکن استفاده می‌کنید
-                        )
-                    }
-                    sendWithoutRequest { request ->
-                        // توکن را در همه درخواست‌ها ارسال کن
-                        !request.url.encodedPath.contains("token") // جلوگیری از ارسال توکن در درخواست‌های مربوط به توکن
-                    }
-                }
-            }
-            install(HttpCache) {
-                publicStorage(CacheStorage.Unlimited()) // ✅ استفاده از CacheStorage جدید
-            }
-            engine {
-                addInterceptor { chain ->
-                    val originalRequest = chain.request()
-                    val newRequest = originalRequest.newBuilder()
-                        .header("Accept-Language", appContext.getLanguageCode())
-                        .apply {
-                            authToken?.let { token ->
-                                header("Authorization", "Bearer $token") // استفاده از header به جای addHeader
-                            }
-                        }
-                        .build()
-                    chain.proceed(newRequest) // فقط یک بار proceed فراخوانی شود
-                }
-                // CertificatePinner.Builder()
-                //     .add("api.example.com", "sha256/ABC123...")
-                //     .build()
-            }
-
-            // 9. تبدیل کدهای HTTP به استثنا
-            HttpResponseValidator {
-                validateResponse { response ->
-                    if (response.status.value !in 200..299) {
-                        throw NetworkException.fromStatusCode(response.status.value, appContext)
-                    }
-                }
-            }
+    private fun createHttpClient(baseUrl: String): HttpClient = HttpClient(OkHttp) {
+        install(ContentNegotiation) {
+            json(Json { prettyPrint = true })
+        }
+        defaultRequest {
+            url(baseUrl)
         }
     }
 
-    /**
-     * تابع مرکزی برای انجام درخواست‌های امن
-     */
     suspend fun <T> safeApiCall(
-        apiCall: suspend () -> T
+        requireConnection: Boolean = true,
+        apiCall: suspend () -> ApiResponse<T>
     ): NetworkResult<T> {
-        require(::appContext.isInitialized) { "NetworkHandler.initialize() must be called first" }
-
         return try {
+            if (requireConnection && !hasNetworkConnection()) {
+                return NetworkResult.Error(
+                    error = ConnectionError(
+                        message = appContext.getString(com.zar.core.R.string.error_no_connection),
+                        cause = null,
+                        connectionType = null
+                    )
+                )
+            }
             withContext(Dispatchers.IO) {
-                NetworkResult.Success(apiCall())
+                val response = apiCall()
+                handleApiResponse(response)
             }
         } catch (e: Exception) {
-            Timber.e(e, "API call failed after retries")
+            Timber.e(e, "API call failed")
             NetworkResult.Error.fromException(e, appContext)
         }
     }
 
-    // متدهای HTTP پوشش داده شده
-    suspend inline fun <reified T> get(url: String) = safeApiCall { client.get(url).body<T>() }
-    suspend inline fun <reified T> post(url: String, body: Any) =
-        safeApiCall { client.post(url) { setBody(body) }.body<T>() }
+    private fun <T> handleApiResponse(response: ApiResponse<T>): NetworkResult<T> {
+        return if (!response.hasError) {
+            response.data?.let { NetworkResult.Success(it) } ?: NetworkResult.Error(
+                ConnectionError(
+                    message = "Empty data",
+                    cause = null,
+                    connectionType = null
+                )
+            )
+        } else {
+            NetworkResult.Error(
+                ApiError(
+                    errorCode = response.code.toString(),
+                    message = response.message ?: "Server error",
+                    cause = null
+                )
+            )
+        }
+    }
 
-    suspend inline fun <reified T> put(url: String, body: Any) =
-        safeApiCall { client.put(url) { setBody(body) }.body<T>() }
-
-    suspend inline fun <reified T> delete(url: String) =
-        safeApiCall { client.delete(url).body<T>() }
-
-    suspend inline fun <reified T> patch(url: String, body: Any) =
-        safeApiCall { client.patch(url) { setBody(body) }.body<T>() }
-
-    suspend inline fun <reified T> head(url: String) = safeApiCall { client.head(url).body<T>() }
-}
-
-
-fun Context.getLanguageCode(): String {
-    return Locale.getDefault().language // مثال: "fa" یا "en"
+    private suspend fun hasNetworkConnection(): Boolean {
+        return when (networkMonitor.networkStatus.first()) {
+            is NetworkStatusMonitor.NetworkStatus.Available -> true
+            NetworkStatusMonitor.NetworkStatus.Unavailable -> false
+        }
+    }
 }

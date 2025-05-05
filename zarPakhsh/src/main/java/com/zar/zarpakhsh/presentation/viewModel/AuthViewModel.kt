@@ -40,7 +40,17 @@ class AuthViewModel(
     fun login(username: String, password: String) {
         loginUseCase(username, password)
             .onEach { result ->
-                _loginState.value = result
+                when (result) {
+                    is NetworkResult.Success -> {
+                        // ذخیره توکن یا نمایش صفحه بعدی
+
+                    }
+                    is NetworkResult.Error -> {
+
+                    }
+                    NetworkResult.Loading -> Unit
+                    NetworkResult.Idle -> Unit
+                }
             }
             .launchIn(viewModelScope)
     }

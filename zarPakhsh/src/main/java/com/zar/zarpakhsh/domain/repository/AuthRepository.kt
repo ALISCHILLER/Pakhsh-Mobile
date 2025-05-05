@@ -1,5 +1,6 @@
 package com.zar.zarpakhsh.domain.repository
 
+import com.zar.core.data.network.handler.NetworkException
 import com.zar.core.data.network.handler.NetworkResult
 import com.zar.zarpakhsh.domain.entities.User
 import kotlinx.coroutines.flow.Flow
@@ -15,17 +16,17 @@ interface AuthRepository {
      * نتیجه نهایی (کاربر در صورت موفقیت، یا Null در صورت شکست اولیه) را برمی‌گرداند
      * یا در صورت خطای قابل توجه، استثناء پرتاب می‌کند.
      */
-    @Throws(com.zar.core.data.network.handler.NetworkException::class) // اعلام اینکه ممکن است NetworkException پرتاب شود
+    @Throws(NetworkException::class) // اعلام اینکه ممکن است NetworkException پرتاب شود
     suspend fun login(username: String, password: String): NetworkResult<User>
 
-    /**
-     * عملیات خروج کاربر.
-     */
-    @Throws(com.zar.core.data.network.handler.NetworkException::class)
-    suspend fun logout(): NetworkResult<Unit> ?
-
-    /**
-     * بررسی وضعیت ورود کاربر به صورت یک Flow.
-     */
-    fun isLoggedIn(): Flow<Boolean>
+//    /**
+//     * عملیات خروج کاربر.
+//     */
+//    @Throws(NetworkException::class)
+//    suspend fun logout():  Flow<NetworkResult<Unit>> ?
+//
+//    /**
+//     * بررسی وضعیت ورود کاربر به صورت یک Flow.
+//     */
+//    fun isLoggedIn(): Flow<Boolean>
 }

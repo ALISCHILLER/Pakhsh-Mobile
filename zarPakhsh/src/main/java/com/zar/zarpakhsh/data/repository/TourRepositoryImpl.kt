@@ -5,7 +5,6 @@ import com.zar.core.data.network.handler.NetworkException
 import com.zar.core.data.network.handler.NetworkResult
 import com.zar.zarpakhsh.data.mappers.toUser
 import com.zar.zarpakhsh.data.models.LoginRequest
-import com.zar.zarpakhsh.data.remote.RemoteDataSourceCustomer
 import com.zar.zarpakhsh.domain.entities.Customer
 import com.zar.zarpakhsh.domain.entities.Product
 import com.zar.zarpakhsh.domain.entities.Settings
@@ -21,7 +20,7 @@ class TourRepositoryImpl(
 
     override suspend fun getCustomerList(): NetworkResult<List<Customer>> {
         return try {
-            val result = remoteDataSourceCustomer.getCustomerAddressList()
+            val result = remoteDataSourceCustomer.getCustomersList()
             when (result) {
                 is NetworkResult.Success -> {
                     val customers = result.data.flatMap { it.customer }

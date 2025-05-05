@@ -23,4 +23,18 @@
         <item quantity="other">%d تلاش باقی‌مانده</item>
     </plurals>
 
+
+    <string name="error_no_connection">ارتباط با سرور برقرار نشد. لطفاً اتصال اینترنت خود را بررسی کنید.</string>
+    <string name="error_bad_request">درخواست شما نامعتبر است.</string>
+    <string name="error_unauthorized">دسترسی غیرمجاز.</string>
+    <string name="error_forbidden">اجازه دسترسی ندارید.</string>
+    <string name="error_not_found">موردی یافت نشد.</string>
+    <string name="error_conflict">تداخل در داده‌ها.</string>
+    <string name="error_unprocessable">درخواست قابل پردازش نیست.</string>
+    <string name="error_timeout">زمان درخواست به پایان رسید.</string>
+    <string name="error_server">خطای داخلی سرور.</string>
+    <string name="error_server_generic">خطای عمومی در سمت سرور رخ داد.</string>
+    <string name="error_unknown">خطای ناشناخته‌ای رخ داده است.</string>
+    <string name="error_large_download">حجم فایل زیاد است. لطفاً از شبکه Wi-Fi استفاده کنید.</string>
+
 </resources>
