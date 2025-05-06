@@ -1,13 +1,22 @@
 package com.zar.zarpakhsh.di
 
 import com.zar.zarpakhsh.data.repository.AuthRepositoryImpl
+import com.zar.zarpakhsh.data.repository.PokemonRepositoryImpl
 import com.zar.zarpakhsh.domain.repository.AuthRepository
+import com.zar.zarpakhsh.domain.repository.PokemonRepository
 import org.koin.dsl.module
 
 val repositoryModule = module {
-    // Singleton برای AuthRepositoryImpl
-    // AuthRepository
-    factory<AuthRepository> {
-        AuthRepositoryImpl(get())
+    val repositoryModule = module {
+
+        // Auth Repository
+        single<AuthRepository> {
+            AuthRepositoryImpl(get())
+        }
+
+        // Pokemon Repository
+        single<PokemonRepository> {
+            PokemonRepositoryImpl(get())
+        }
     }
 }

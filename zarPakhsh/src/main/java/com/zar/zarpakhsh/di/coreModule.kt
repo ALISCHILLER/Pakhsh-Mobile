@@ -2,32 +2,42 @@ package com.zar.zarpakhsh.di
 
 import android.content.Context
 import com.zar.core.config.AppConfig
+import com.zar.core.data.network.handler.HttpClientFactory
 import com.zar.core.data.network.handler.NetworkHandler
 import com.zar.core.data.network.model.NetworkConfig
 import com.zar.core.data.network.utils.NetworkStatusMonitor
 import com.zar.zarpakhsh.data.local.storage.LocalDataSourceAuth
 import com.zar.zarpakhsh.utils.config.AppConfigZar
+import io.ktor.client.HttpClient
 import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val coreModule = module {
     // Context
-    single { androidContext().applicationContext as Context }
+    single<Context> { androidContext() }
 
-    // NetworkConfig
+    // Network Config
     single { NetworkConfig.DEFAULT }
 
-    // NetworkStatusMonitor
-    factory { (context: Context) -> NetworkStatusMonitor(context) }
+    // Network Monitor
+    single<NetworkStatusMonitor> { NetworkStatusMonitor(androidContext()) }
+
+    // HttpClient
+    single<HttpClient> {
+        HttpClientFactory.create(androidContext(), get()).value
+    }
 
     // NetworkHandler
     single {
-        val context: Context = get()
-        val monitor: NetworkStatusMonitor = get()
-        val config: NetworkConfig = get()
-        NetworkHandler.initialize(context, monitor, config)
-        NetworkHandler
+        NetworkHandler.apply {
+            initialize(
+                context = androidContext(),
+                monitor = get(),
+                httpClient = get()
+            )
+        }
     }
+    // AppConfig
     single<AppConfig> { AppConfigZar }
 }

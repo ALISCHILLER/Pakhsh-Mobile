@@ -8,9 +8,5 @@ import kotlinx.coroutines.flow.Flow
 
 
 interface AuthRepository {
-
-    @Throws(NetworkException::class) // اعلام اینکه ممکن است NetworkException پرتاب شود
-    suspend fun login(loginRequest: LoginRequest): NetworkResult<User>
-
-
+    fun login(loginRequest: LoginRequest): Flow<NetworkResult<User>>
 }

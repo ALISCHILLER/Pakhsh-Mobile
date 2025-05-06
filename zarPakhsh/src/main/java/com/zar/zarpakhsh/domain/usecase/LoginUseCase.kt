@@ -12,8 +12,7 @@ import kotlinx.coroutines.flow.flow
 class LoginUseCase(
     private val authRepository: AuthRepository
 ) {
-
-    suspend fun execute(loginRequest: LoginRequest): NetworkResult<LoginResponse> {
+    suspend fun execute(loginRequest: LoginRequest):  Flow<NetworkResult<User>> {
         return authRepository.login(loginRequest)
     }
 }

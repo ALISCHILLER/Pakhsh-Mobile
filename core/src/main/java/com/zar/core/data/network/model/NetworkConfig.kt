@@ -1,5 +1,6 @@
 package com.zar.core.data.network.model
 
+
 import com.zar.core.BuildConfig
 
 data class NetworkConfig(
@@ -9,7 +10,7 @@ data class NetworkConfig(
     val maxRetries: Int = 3,
     val cacheSize: Long = 10 * 1024 * 1024, // 10 MB
     val sslPinningEnabled: Boolean = false,
-    val baseUrl: String = "https://api.example.com",
+    val baseUrl: String = "https://pokeapi.co/api/v2/",
     val loggingConfig: LoggingConfig = LoggingConfig(),
     val sslConfig: SSLConfig = SSLConfig(),
     val cacheConfig: CacheConfig = CacheConfig()

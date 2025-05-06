@@ -15,24 +15,26 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 val networkModule = module {
-    // NetworkConfig Single
+
+    // Network Config
     single { NetworkConfig.DEFAULT }
 
-    // NetworkStatusMonitor برای نظارت بر وضعیت اتصال شبکه
-    single { NetworkStatusMonitor(androidContext()) }
+    // Network Monitor
+    single<NetworkStatusMonitor> { NetworkStatusMonitor(androidContext()) }
 
-    // HttpClient تنظیمات اصلی HttpClient برای Ktor
-    single(named("ktor_client")) {
-        HttpClientFactory.create(androidContext(), get())
+    // HttpClient (با استفاده از HttpClientFactory)
+    single {
+        HttpClientFactory.create(androidContext(), get()).value
     }
 
-    // پیاده‌سازی NetworkHandler و مقداردهی اولیه
+    // NetworkHandler
     single {
-        NetworkHandler.initialize(
-            context = androidContext(),
-            monitor = get(),
-            httpClient = get(named("ktor_client"))
-        )
-        NetworkHandler
+        NetworkHandler.apply {
+            initialize(
+                context = androidContext(),
+                monitor = get(),
+                httpClient = get()
+            )
+        }
     }
 }

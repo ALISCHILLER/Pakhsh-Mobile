@@ -1,10 +1,11 @@
 package com.zar.zarpakhsh.data.repository
 
+import com.zar.core.base.BaseRepository
 import com.zar.core.data.network.error.NetworkResult
+import com.zar.core.data.network.error.map
 import com.zar.core.data.network.handler.HttpClientFactory
 import com.zar.core.data.network.handler.NetworkException
 import com.zar.core.data.network.handler.NetworkHandler
-import com.zar.core.data.network.repository.BaseRepository
 import com.zar.zarpakhsh.data.local.storage.LocalDataSourceAuth
 import com.zar.zarpakhsh.data.mappers.toUser
 import com.zar.zarpakhsh.data.models.LoginRequest
@@ -18,21 +19,18 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 
 class AuthRepositoryImpl(
-    private val networkService: NetworkService, // وابسته به API
-    private val localDataSourceAuth: LocalDataSourceAuth,
-    private val client: HttpClientFactory// وابسته به ذخیره‌سازی محلی
-) : AuthRepository, BaseRepository() {
+    networkHandler: NetworkHandler
+) : AuthRepository, BaseRepository(networkHandler) {
 
 
-    override suspend fun login(loginRequest: LoginRequest): NetworkResult<User> {
-        return makeApiCall {
-            // فرض کنید apiCall از یک API داخلی می‌آید که درخواست لاگین را ارسال می‌کند
-            // این apiCall می‌تواند مربوط به یک سرویس خاص باشد که با سرور ارتباط برقرار می‌کند.
-            networkService.login(loginRequest)
+    override fun login(loginRequest: LoginRequest): Flow<NetworkResult<User>> {
+        return postAsFlow<LoginResponse>(
+            url = ApiEndpoints.LOGIN,
+            body = loginRequest
+        ).map { result ->
+            result.map { response ->
+                response.toUser()
+            }
         }
     }
-
-
-
-
 }

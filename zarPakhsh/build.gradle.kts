@@ -3,6 +3,7 @@ plugins {
     alias(libs.plugins.kotlin.android)
     id("com.google.devtools.ksp")
     alias(libs.plugins.kotlin.compose)
+    id("kotlinx-serialization")
 }
 
 android {
@@ -89,4 +90,18 @@ dependencies {
 
     // google gson
     implementation(dependency.google.gson)
+
+    //network ktor
+    implementation(platform(dependency.ktor.bom))
+    implementation(dependency.ktor.android)
+    implementation(dependency.ktor.serialization)
+    implementation(dependency.ktor.logging)
+    implementation(dependency.ktor.negotiation)
+    implementation(dependency.ktor.json)
+    implementation(dependency.ktor.okhttp)
+    implementation(dependency.ktor.auth)
+    implementation(dependency.ktor.core)
+    implementation(dependency.ktor.resources)
+    implementation("io.ktor:ktor-client-core:3.1.2")
+    implementation("io.ktor:ktor-client-cio:3.1.2")
 }

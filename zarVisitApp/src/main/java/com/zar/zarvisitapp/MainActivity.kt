@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.zar.zarpakhsh.BuildConfig
+import com.zar.zarpakhsh.presentation.screens.PokemonScreen
 import com.zar.zarpakhsh.utils.config.AppConfigZar
 import com.zar.zarvisitapp.ui.theme.ZarPakhshMobileTheme
 import org.koin.core.component.inject
@@ -24,12 +25,11 @@ class MainActivity : ComponentActivity() {
         setContent {
             ZarPakhshMobileTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
-                        modifier = Modifier.padding(innerPadding)
-                    )
+
                     val appConfig = AppConfigZar
                     Log.e("MainActivity", "onCreate: ${appConfig.appFlavor}")
+
+                    PokemonScreen()
                 }
             }
         }
