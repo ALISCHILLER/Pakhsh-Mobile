@@ -37,4 +37,38 @@
     <string name="error_unknown">خطای ناشناخته‌ای رخ داده است.</string>
     <string name="error_large_download">حجم فایل زیاد است. لطفاً از شبکه Wi-Fi استفاده کنید.</string>
 
+
+    <string name="error_unknown">خطای ناشناخته</string>
+    <string name="error_timeout">درخواست به دلیل تایم‌اوت شکست خورد</string>
+    <string name="error_no_connection">اتصال به اینترنت برقرار نیست</string>
+
+    <!-- Titles -->
+    <string name="error_title_network">مشکل شبکه</string>
+    <string name="error_title_server">خطای سرور</string>
+    <string name="error_title_application">خطای برنامه</string>
+    <string name="error_title_unknown">خطای ناشناخته</string>
+
+    <string name="error_title_network">مشکل شبکه</string>
+    <string name="error_title_server">خطای سرور</string>
+    <string name="error_title_application">خطای برنامه</string>
+    <string name="error_title_unknown">خطای ناشناخته</string>
+    <string name="error_unknown">خطای ناشناخته رخ داده است</string>
+    <string name="error_no_connection">اتصال به اینترنت برقرار نیست</string>
+    <string name="error_timeout">درخواست به دلیل تایم‌اوت شکست خورد</string>
+    <string name="error_server">خطای داخلی سرور</string>
+    <string name="error_validation_failed">اعتبارسنجی شکست خورد</string>
+    <string name="error_request_cancelled">درخواست کنسل شد</string>
+
+    <string name="error_no_connection">اتصال اینترنتی برقرار نیست</string>
+    <string name="error_bad_request">درخواست نامعتبر است</string>
+    <string name="error_unauthorized">دسترسی غیرمجاز</string>
+    <string name="error_forbidden">دسترسی ممنوع است</string>
+    <string name="error_not_found">یافت نشد</string>
+    <string name="error_conflict">تعارض در داده‌ها</string>
+    <string name="error_unprocessable">امکان پردازش درخواست نیست</string>
+    <string name="error_timeout">پاسخ‌دهی طول کشید. لطفاً مجدداً تلاش کنید</string>
+    <string name="error_large_download">دانلود فایل بیش از حد مجاز است</string>
+    <string name="error_server">خطای سرور رخ داده است</string>
+    <string name="error_server_generic">خطای عمومی در سرور</string>
+    <string name="error_unknown">خطای ناشناخته‌ای رخ داده است</string>
 </resources>

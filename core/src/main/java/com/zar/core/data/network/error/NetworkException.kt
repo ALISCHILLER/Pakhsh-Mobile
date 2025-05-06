@@ -5,6 +5,9 @@ import com.zar.core.R
 import com.zar.core.data.network.utils.NetworkStatusMonitor
 import java.io.IOException
 
+/**
+ * Custom exception to represent various network-related issues with meaningful context.
+ */
 class NetworkException(
     val errorCode: NetworkErrorCode,
     context: Context,
@@ -13,6 +16,9 @@ class NetworkException(
     val connectionType: NetworkStatusMonitor.ConnectionType? = null
 ) : IOException(context.getString(errorCode.resourceId), cause) {
 
+    /**
+     * Determines whether this network exception can be retried.
+     */
     fun isRetryable(): Boolean {
         return errorCode.shouldRetry && !(
                 connectionType == NetworkStatusMonitor.ConnectionType.CELLULAR &&
@@ -20,6 +26,9 @@ class NetworkException(
                 )
     }
 
+    /**
+     * Enum representing specific network error codes with user-friendly messages and retry policy.
+     */
     enum class NetworkErrorCode(
         val code: Int,
         val resourceId: Int,
@@ -46,6 +55,9 @@ class NetworkException(
     }
 
     companion object {
+        /**
+         * Factory method to create a [NetworkException] from an HTTP status code.
+         */
         fun fromStatusCode(
             statusCode: Int,
             context: Context,

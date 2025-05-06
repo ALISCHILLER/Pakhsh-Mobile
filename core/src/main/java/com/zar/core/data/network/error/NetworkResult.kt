@@ -5,48 +5,50 @@ import com.zar.core.R
 import com.zar.core.data.network.handler.NetworkException
 import kotlinx.coroutines.TimeoutCancellationException
 import timber.log.Timber
-import java.io.IOException
 
 sealed class NetworkResult<out T> {
+
+    // برای بارگذاری (مثلاً نمایش ProgressBar)
     object Loading : NetworkResult<Nothing>()
+
+    // حالت پیش‌فرض یا اولیه
     object Idle : NetworkResult<Nothing>()
+
+    // موفقیت با داده‌ی موردنظر
     data class Success<out T>(val data: T) : NetworkResult<T>()
-    data class Error(
-        val error: AppError,
-        val retryCount: Int = 0,
-        val operation: String = "unknown"
-    ) : NetworkResult<Nothing>() {
+
+    // خطا با جزئیات
+    data class Error(val error: AppError) : NetworkResult<Nothing>() {
+
         companion object {
-            fun fromException(
-                exception: Throwable,
-                context: Context,
-                operation: String = "unknown"
-            ): Error {
+            fun fromException(exception: Throwable, context: Context): NetworkResult<Nothing> {
                 return when (exception) {
                     is NetworkException -> {
-                        val networkError = ConnectionError(
-                            message = exception.message ?: "",
-                            cause = exception,
-                            connectionType = exception.connectionType
+                        val error = ConnectionError(
+                            errorCode = "network_unavailable",
+                            message = context.getString(R.string.error_no_connection),
+                            connectionType = exception.connectionType.toString()
                         )
-                        Error(networkError, retryCount = exception.retryCount, operation = operation)
+                        Error(error)
                     }
+
                     is TimeoutCancellationException -> {
-                        val timeoutError = ConnectionError(
-                            message = context.getString(com.zar.core.R.string.error_timeout),
-                            cause = exception,
-                            connectionType = null
+                        val error = TimeoutError(
+                            errorCode = "request_timeout",
+                            message = context.getString(R.string.error_timeout),
+                            duration = 30_000,
+                            cause = exception
                         )
-                        Error(timeoutError, operation = operation)
+                        Error(error)
                     }
+
                     else -> {
-                        Timber.e(exception, "Unhandled exception")
-                        val genericError = ConnectionError(
-                            message = context.getString(com.zar.core.R.string.error_unknown),
-                            cause = exception,
-                            connectionType = null
+                        Timber.e(exception, "Unhandled exception in network call")
+                        Error(
+                            UnknownError(
+                                message = context.getString(R.string.error_unknown)
+                            )
                         )
-                        Error(genericError, operation = operation)
                     }
                 }
             }

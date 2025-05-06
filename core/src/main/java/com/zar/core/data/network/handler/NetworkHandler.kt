@@ -16,73 +16,88 @@ import kotlinx.serialization.json.Json
 import timber.log.Timber
 
 object NetworkHandler {
+
     private lateinit var appContext: Context
     private lateinit var networkMonitor: NetworkStatusMonitor
     private lateinit var client: HttpClient
 
-    fun initialize(context: Context, monitor: NetworkStatusMonitor) {
+    /**
+     * این متد برای راه‌اندازی اجزای اصلی مانند context، network monitor و httpClient استفاده می‌شود
+     */
+    fun initialize(
+        context: Context,
+        monitor: NetworkStatusMonitor,
+        httpClient: HttpClient
+    ) {
         appContext = context.applicationContext
         networkMonitor = monitor
-        client = createHttpClient("https://api.example.com")
+        client = httpClient
     }
 
-    private fun createHttpClient(baseUrl: String): HttpClient = HttpClient(OkHttp) {
-        install(ContentNegotiation) {
-            json(Json { prettyPrint = true })
-        }
-        defaultRequest {
-            url(baseUrl)
-        }
-    }
-
+    /**
+     * متد safeApiCall برای مدیریت درخواست‌های API با مدیریت خطا
+     */
     suspend fun <T> safeApiCall(
         requireConnection: Boolean = true,
         apiCall: suspend () -> ApiResponse<T>
     ): NetworkResult<T> {
         return try {
+            // بررسی اتصال شبکه
             if (requireConnection && !hasNetworkConnection()) {
+                Timber.e("No network connection available")
                 return NetworkResult.Error(
                     error = ConnectionError(
-                        message = appContext.getString(com.zar.core.R.string.error_no_connection),
-                        cause = null,
+                        errorCode = "network_unavailable",
+                        message = appContext.getString(R.string.error_no_connection),
                         connectionType = null
                     )
                 )
             }
+
+            // اجرای درخواست API
             withContext(Dispatchers.IO) {
                 val response = apiCall()
                 handleApiResponse(response)
             }
+
         } catch (e: Exception) {
-            Timber.e(e, "API call failed")
-            NetworkResult.Error.fromException(e, appContext)
+            Timber.e(e, "API call failed: ${e.localizedMessage}")
+            // مدیریت خطاهای عمومی
+            return NetworkResult.Error.fromException(e, appContext)
         }
     }
 
+    /**
+     * متد برای پردازش پاسخ API و مدیریت خطاها
+     */
     private fun <T> handleApiResponse(response: ApiResponse<T>): NetworkResult<T> {
         return if (!response.hasError) {
-            response.data?.let { NetworkResult.Success(it) } ?: NetworkResult.Error(
-                ConnectionError(
-                    message = "Empty data",
-                    cause = null,
-                    connectionType = null
+            response.data?.let { data ->
+                NetworkResult.Success(data)
+            } ?: NetworkResult.Error(
+                ParsingError(
+                    errorCode = "empty_data",
+                    message = "No data in response"
                 )
             )
         } else {
             NetworkResult.Error(
                 ApiError(
                     errorCode = response.code.toString(),
-                    message = response.message ?: "Server error",
-                    cause = null
+                    message = response.message ?: "Server error occurred",
+                    statusCode = response.code ?: -1
                 )
             )
         }
     }
 
+    /**
+     * بررسی اتصال شبکه
+     */
     private suspend fun hasNetworkConnection(): Boolean {
         return when (networkMonitor.networkStatus.first()) {
             is NetworkStatusMonitor.NetworkStatus.Available -> true
-            NetworkStatusMonitor.NetworkStatus.Unavailable -> false
+            else -> false
         }
     }
 }

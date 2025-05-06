@@ -10,10 +10,14 @@ import io.ktor.client.plugins.auth.providers.*
 import io.ktor.client.plugins.contentnegotiation.*
 import io.ktor.client.plugins.logging.*
 import io.ktor.client.plugins.cache.*
-import io.ktor.http.encodedPath
+import io.ktor.client.request.header
+import io.ktor.http.*
 import io.ktor.serialization.kotlinx.json.*
 import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
+import okhttp3.Cache
+import okhttp3.CertificatePinner
 import timber.log.Timber
 import java.util.Locale
 import java.util.concurrent.TimeUnit
@@ -27,7 +31,7 @@ object HttpClientFactory {
      * ساخت HttpClient با تمام تنظیمات لازم برای APIها
      */
     fun create(
-        baseUrl: String,
+        context: Context,
         config: NetworkConfig = NetworkConfig.DEFAULT
     ): Lazy<HttpClient> = lazy {
         HttpClient(OkHttp) {
@@ -51,7 +55,7 @@ object HttpClientFactory {
                         Timber.tag("Network").v(message)
                     }
                 }
-                level = LogLevel.ALL
+                level = if (config.loggingConfig.enabled) LogLevel.ALL else LogLevel.NONE
             }
 
             // ================================
@@ -74,28 +78,50 @@ object HttpClientFactory {
                             refreshToken = ""
                         )
                     }
-                    sendWithoutRequest { request ->
-                        !request.url.encodedPath.contains("token")
-                    }
+                    sendWithoutRequest { request -> !request.url.encodedPath.contains("token") }
                 }
             }
 
             // ================================
-            // HTTP Cache
-            // ================================
-            install(HttpCache)
-
-            // ================================
-            // Base URL
+            // Base URL + Header عمومی
             // ================================
             defaultRequest {
-                url(baseUrl)
+                url(config.baseUrl)
+                header(HttpHeaders.Accept, ContentType.Application.Json)
+                header(HttpHeaders.ContentType, ContentType.Application.Json)
+                header("Accept-Language", Locale.getDefault().language)
             }
 
             // ================================
-            // Header های عمومی
+            // OkHttp Engine Config
             // ================================
             engine {
+                config {
+                    connectTimeout(config.connectTimeout, TimeUnit.MILLISECONDS)
+                    readTimeout(config.socketTimeout, TimeUnit.MILLISECONDS)
+                    writeTimeout(config.requestTimeout, TimeUnit.MILLISECONDS)
+                    retryOnConnectionFailure(true)
+
+                    // تنظیمات کش
+                    if (config.cacheConfig.enabled) {
+                        cache(Cache(context.cacheDir, config.cacheConfig.size))
+                    }
+
+                    // تنظیمات SSL Pinning
+                    if (config.sslConfig.pinningEnabled && config.sslConfig.certificates.isNotEmpty()) {
+                        certificatePinner(
+                            CertificatePinner.Builder()
+                                .apply {
+                                    config.sslConfig.certificates.forEach { cert ->
+                                        add("api.example.com", cert)
+                                    }
+                                }
+                                .build()
+                        )
+                    }
+                }
+
+                // interceptor برای افزودن توکن به تمام درخواست‌ها
                 addInterceptor { chain ->
                     val original = chain.request()
                     val request = original.newBuilder()
@@ -115,11 +141,8 @@ object HttpClientFactory {
      * به‌روزرسانی توکن برای Auth Bearer
      */
     suspend fun updateToken(newToken: String?) {
-        tokenMutex.lock()
-        try {
+        tokenMutex.withLock {
             currentToken = newToken
-        } finally {
-            tokenMutex.unlock()
         }
     }
 
@@ -127,11 +150,27 @@ object HttpClientFactory {
      * حذف توکن فعلی
      */
     suspend fun clearToken() {
-        tokenMutex.lock()
-        try {
+        tokenMutex.withLock {
             currentToken = null
-        } finally {
-            tokenMutex.unlock()
         }
     }
+
+    /**
+     * تعیین توکن اولیه
+     */
+    suspend fun setInitialToken(token: String?) {
+        tokenMutex.withLock {
+            currentToken = token
+        }
+    }
+
+    /**
+     * بررسی وجود توکن
+     */
+    fun hasToken(): Boolean = currentToken != null && currentToken!!.isNotBlank()
+
+    /**
+     * دریافت توکن فعلی
+     */
+    fun getCurrentToken(): String? = currentToken
 }
