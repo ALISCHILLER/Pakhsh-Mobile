@@ -8,17 +8,18 @@ import com.zar.zarpakhsh.di.viewModelModule
 import com.zar.zarvisitapp.di.visitDatabaseModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
+import timber.log.Timber
 
 class ZarVisitApp : Application() {
     override fun onCreate() {
         super.onCreate()
 
-//        if (BuildConfig.DEBUG) {
-//            Timber.plant(DebugTree())
-//        }
+        if (BuildConfig.DEBUG) {
+            Timber.plant(Timber.DebugTree())  // فقط در حالت DEBUG از DebugTree استفاده کن
+        }
         startKoin {
             androidContext(this@ZarVisitApp)
-            modules(listOf(appModule, repositoryModule, useCaseModule, viewModelModule))
+            modules(listOf(appModule,visitDatabaseModule,repositoryModule,useCaseModule,viewModelModule))
         }
     }
 }

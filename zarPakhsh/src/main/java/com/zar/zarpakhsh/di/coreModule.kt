@@ -14,8 +14,7 @@ import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
 val coreModule = module {
-    // Context
-    single<Context> { androidContext() }
+
 
     // Network Config
     single { NetworkConfig.DEFAULT }

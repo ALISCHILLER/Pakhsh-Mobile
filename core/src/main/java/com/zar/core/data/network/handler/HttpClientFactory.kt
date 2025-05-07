@@ -67,15 +67,15 @@ object HttpClientFactory {
                         cache(Cache(context.cacheDir, config.cacheConfig.size))
                     }
 
-                    if (config.sslConfig.pinningEnabled && config.sslConfig.certificates.isNotEmpty()) {
-                        certificatePinner(
-                            CertificatePinner.Builder().apply {
-                                config.sslConfig.certificates.forEach {
-                                    add("api.example.com", it)
-                                }
-                            }.build()
-                        )
-                    }
+//                    if (config.sslConfig.pinningEnabled && config.sslConfig.certificates.isNotEmpty()) {
+//                        certificatePinner(
+//                            CertificatePinner.Builder().apply {
+//                                config.sslConfig.certificates.forEach {
+//                                    add("api.example.com", it)
+//                                }
+//                            }.build()
+//                        )
+//                    }
                 }
             }
         }

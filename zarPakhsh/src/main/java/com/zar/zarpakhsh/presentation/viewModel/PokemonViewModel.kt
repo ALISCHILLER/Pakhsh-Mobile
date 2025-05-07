@@ -18,10 +18,13 @@ class PokemonViewModel(
 
     private val _state = MutableStateFlow<NetworkResult<Pokemon>>(NetworkResult.Idle)
     val state: StateFlow<NetworkResult<Pokemon>> = _state
+    init {
+        fetchDitto()
+    }
 
     fun fetchDitto() {
         viewModelScope.launch {
-            getPokemonUseCase()?.collect {
+            getPokemonUseCase().collect {
                 _state.value = it
             }
         }

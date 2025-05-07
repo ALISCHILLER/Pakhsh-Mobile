@@ -1,6 +1,9 @@
-package com.zar.zarpakhsh.domain.entities
+package com.zar.zarpakhsh.data.local.entity
 
-data class Product(
+import androidx.room.Entity
+
+@Entity("product_groups")
+data class ProductGroupEntity(
     val id: String,
     val name: String,
     val price: Double,

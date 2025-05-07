@@ -7,7 +7,6 @@ import androidx.lifecycle.viewModelScope
 import com.zar.core.data.network.error.NetworkResult
 import com.zar.zarpakhsh.data.models.LoginRequest
 import com.zar.zarpakhsh.data.models.LoginResponse
-import com.zar.zarpakhsh.domain.entities.User
 import com.zar.zarpakhsh.domain.usecase.LoginUseCase
 import com.zar.zarpakhsh.domain.usecase.ValidateCredentialsUseCase
 import com.zar.zarpakhsh.domain.usecase.ValidationResult

@@ -3,7 +3,6 @@ package com.zar.zarpakhsh.presentation.viewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zar.core.data.network.error.NetworkResult
-import com.zar.zarpakhsh.domain.entities.Customer
 import com.zar.zarpakhsh.domain.usecase.CustomersUseCase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

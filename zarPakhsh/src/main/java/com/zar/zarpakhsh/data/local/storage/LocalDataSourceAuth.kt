@@ -2,7 +2,6 @@ package com.zar.zarpakhsh.data.local.storage
 
 import com.zar.core.data.storage.BaseSharedPreferences
 import com.zar.core.data.storage.PrefKey
-import com.zar.zarpakhsh.domain.entities.User
 
 /**
  * کلاس مدیریت داده‌های محلی برای احراز هویت.
@@ -17,9 +16,9 @@ class LocalDataSourceAuth(
      *
      * @param user اطلاعات کاربر شامل نام کاربری، ایمیل و توکن.
      */
-    fun saveUser(user: User) {
-        sharedPreferences.saveString(PrefKey.UserName.key, user.username)
-        sharedPreferences.saveString(PrefKey.Token.key, user.token)
+    fun saveUser(username: String) {
+        sharedPreferences.saveString(PrefKey.UserName.key, username)
+
     }
 
     /**
@@ -27,15 +26,28 @@ class LocalDataSourceAuth(
      *
      * @return اطلاعات کاربر یا null اگر داده‌ای وجود نداشته باشد.
      */
-    fun getUser(): User? {
+    fun getUser(): String? {
         val username = sharedPreferences.getString(PrefKey.UserName.key, "")
         val token = sharedPreferences.getString(PrefKey.Token.key, "")
-        return if (username.isNotEmpty() && token.isNotEmpty()) {
-            User(username = username, token = token, id = "", email = "")
+        return if (username.isNotEmpty()) {
+            username
         } else {
             null
         }
     }
+    fun saveToken(token: String){
+        sharedPreferences.saveString(PrefKey.Token.key, token)
+    }
+
+    fun getToken(): String? {
+        val token = sharedPreferences.getString(PrefKey.Token.key, "")
+        return if (token.isNotEmpty()) {
+            token
+        } else {
+            null
+        }
+    }
+
 
     /**
      * بررسی وضعیت ورود کاربر.

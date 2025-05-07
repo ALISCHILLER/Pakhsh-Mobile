@@ -22,8 +22,6 @@ class PokemonRepositoryImpl(
             .map { result ->
                 result.map { response ->
                     val domainModel = response.toDomain()
-
-
                     domainModel
                 }
             }

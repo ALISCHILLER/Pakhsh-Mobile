@@ -54,14 +54,14 @@ object NetworkHandler {
                     )
                 )
             }
-
+            Timber.d("Performing API call...")
             withContext(Dispatchers.IO) {
                 val response = apiCall()
                 handleApiResponse(response)
             }
 
         } catch (e: Exception) {
-            Timber.e(e, "API call failed: ${e.localizedMessage}")
+            Timber.e(e, "API call failed: ${e}")
             NetworkResult.Error.fromException(e, appContext)
         }
     }
@@ -70,11 +70,13 @@ object NetworkHandler {
      * پردازش پاسخ API و تبدیل به NetworkResult
      */
     public fun <T> handleApiResponse(response: ApiResponse<T>): NetworkResult<T> {
+        Timber.d("Handling API response: $response")
         return if (!response.hasError) {
             response.data?.let { data ->
                 NetworkResult.Success(data)
             } ?: NetworkResult.Error(ParsingError(errorCode = "empty_data", message = "No data in response"))
         } else {
+            Timber.e("API response error: ${response.message}, Code: ${response.code}")
             NetworkResult.Error(ApiError(
                 errorCode = response.code.toString(),
                 message = response.message ?: "Server error occurred",

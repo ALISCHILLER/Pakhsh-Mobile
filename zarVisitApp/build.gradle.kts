@@ -81,5 +81,8 @@ dependencies {
     ksp(dependency.room.compiler)
     implementation(dependency.room.ktx)
 
+    // log  timber
+    implementation(dependency.timber.log)
+
 
 }

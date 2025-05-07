@@ -1,16 +1,14 @@
 package com.zar.zarpakhsh.di
 
 import com.zar.zarpakhsh.domain.usecase.GetPokemonUseCase
-import com.zar.zarpakhsh.domain.usecase.LoginUseCase
-import com.zar.zarpakhsh.domain.usecase.ValidateCredentialsUseCase
+import org.koin.core.module.dsl.createdAtStart
+import org.koin.core.module.dsl.withOptions
 import org.koin.dsl.module
 
-val  useCaseModule = module {
+val useCaseModule = module {
+//    factory { GetPokemonUseCase(get()) }
 
-    // Auth UseCases
-    factory { LoginUseCase(get()) }
-    factory { ValidateCredentialsUseCase(get()) }
-
-    // Pokemon UseCases
-    factory { GetPokemonUseCase(get()) }
+    single { GetPokemonUseCase(get()) }.withOptions {
+        createdAtStart()
+    }
 }

@@ -7,9 +7,9 @@ import com.zar.zarpakhsh.domain.repository.PokemonRepository
 import kotlinx.coroutines.flow.Flow
 
 class GetPokemonUseCase(
-    private val repository: PokemonRepository
+    private val  repository: PokemonRepository
 ) {
-    suspend operator fun invoke(): Flow<NetworkResult<Pokemon>>? {
-        return null
+    suspend operator fun invoke(): Flow<NetworkResult<Pokemon>> {
+        return repository.getDitto()
     }
 }
