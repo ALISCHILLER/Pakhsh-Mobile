@@ -27,4 +27,5 @@ val visitDatabaseModule = module {
     single { get<VisitDatabase>().productDao() }
     single { get<VisitDatabase>().productUnitDao() }
     single { get<VisitDatabase>().customerDao() }
+    single { get<VisitDatabase>().fcmMessageDao() }
 }

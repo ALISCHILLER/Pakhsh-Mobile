@@ -2,16 +2,16 @@
 
 package com.zar.zarvisitapp.data.local
 
-import android.content.Context
 import androidx.room.Database
-import androidx.room.Room
 import androidx.room.RoomDatabase
 import com.zar.zarpakhsh.data.local.dao.CustomerDao
+import com.zar.zarpakhsh.data.local.dao.FCMMessageDao
 import com.zar.zarpakhsh.data.local.dao.ProductDao
 import com.zar.zarpakhsh.data.local.dao.ProductGroupDao
 import com.zar.zarpakhsh.data.local.dao.ProductUnitDao
 import com.zar.zarpakhsh.data.local.dao.UserDao
 import com.zar.zarpakhsh.data.local.entity.CustomerModelEntity
+import com.zar.zarpakhsh.data.local.entity.FCMMessageEntity
 import com.zar.zarpakhsh.data.local.entity.ProductEntity
 import com.zar.zarpakhsh.data.local.entity.ProductGroupEntity
 import com.zar.zarpakhsh.data.local.entity.ProductUnitEntity
@@ -27,6 +27,7 @@ import com.zar.zarvisitapp.data.local.entities.VisitEntity
         ProductEntity::class,
         ProductGroupEntity::class,
         ProductUnitEntity::class,
+        FCMMessageEntity::class
     ],
     version = 1,
     exportSchema = false
@@ -40,6 +41,7 @@ abstract class VisitDatabase : RoomDatabase() {
     abstract fun productDao(): ProductDao
     abstract fun productUnitDao(): ProductUnitDao
     abstract fun customerDao(): CustomerDao
+    abstract fun fcmMessageDao(): FCMMessageDao
 
 //    companion object {
 //        private const val DB_NAME = "visit_database"

@@ -104,4 +104,9 @@ dependencies {
     implementation(dependency.ktor.resources)
     implementation("io.ktor:ktor-client-core:3.1.2")
     implementation("io.ktor:ktor-client-cio:3.1.2")
+
+    // signalR
+    implementation ("com.microsoft.signalr:signalr:5.0.4")
+
+    implementation ("com.google.android.gms:play-services-location:21.0.1")
 }
