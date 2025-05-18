@@ -25,6 +25,11 @@ interface CustomerDao {
      @Query("SELECT * FROM customers WHERE id = :customerId")
      suspend fun getCustomerById(customerId: String): CustomerModelEntity?
 
+     @Query("SELECT * FROM customers WHERE name LIKE '%' || :query || '%' OR mobile LIKE '%' || :query || '%'")
+     fun searchCustomers(query: String): Flow<List<CustomerModelEntity>>
+
+     @Query("SELECT COUNT(*) FROM customers")
+     suspend fun getCustomerCount(): Int
 
      // --- Delete ---
      @Query("DELETE FROM customers")

@@ -16,7 +16,9 @@ val visitDatabaseModule = module {
             androidContext(),
             VisitDatabase::class.java,
             "visit_database"
-        ).fallbackToDestructiveMigration()
+        )
+            //.addMigrations(MIGRATION_1_2)
+            .fallbackToDestructiveMigration()
             .build()
     }
 

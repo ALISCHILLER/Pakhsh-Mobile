@@ -11,6 +11,7 @@ data class CustomerModelEntity(
     val name: String,
     val email: String,
     val phone: String,
+    val mobile: String,
     val address: String,
     val city: String,
     val state: String,

@@ -5,9 +5,10 @@ import androidx.room.PrimaryKey
 
 @Entity(tableName = "fcm_messages")
 data class FCMMessageEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
     val title: String?,
     val body: String?,
     val data: String?,
-    val timestamp: Long = System.currentTimeMillis()
+    val receivedAt: Long = System.currentTimeMillis(),
+    val isRead: Boolean = false
 )
