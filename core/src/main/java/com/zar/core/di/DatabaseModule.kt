@@ -13,7 +13,8 @@ import androidx.room.migration.Migration
 inline fun <reified T : BaseDatabase> baseDatabaseModule(
     databaseClass: Class<T>,
     crossinline daoProvider: (T) -> Any, // اضافه کردن crossinline
-    migrations: List<Migration> = emptyList()
+    migrations: List<Migration> = emptyList(),
+    useDestructiveMigration: Boolean = false
 ) = module {
 
     // ارائه نمونه Singleton از دیتابیس
@@ -22,7 +23,8 @@ inline fun <reified T : BaseDatabase> baseDatabaseModule(
             context = get(),
             databaseClass = databaseClass,
             databaseName = get<AppConfig>().databaseName,
-            migrations = migrations
+            migrations = migrations,
+            useDestructiveMigration = useDestructiveMigration
         )
     }
 
@@ -30,13 +32,3 @@ inline fun <reified T : BaseDatabase> baseDatabaseModule(
     factory { daoProvider(get()) }
 }
 
-//. نحوه استفاده
-//val appDatabaseModule = baseDatabaseModule(
-//    databaseClass = AppDatabase::class.java,
-//    daoProvider = { it.userDao() }, // لامبدا بدون return غیرمحلی
-//    migrations = listOf(
-//        createMigration(1, 2) {
-//            execSQL("ALTER TABLE users ADD COLUMN email TEXT")
-//        }
-//    )
-//)

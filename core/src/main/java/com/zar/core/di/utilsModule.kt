@@ -19,8 +19,7 @@ val utilsModule = module {
 
     single { FileManager(get()) }
 
-    // ارائه Gson به‌عنوان Singleton
-    single { lazy { Gson() } }
+    single { Gson() }
 
     // ارائه BaseSharedPreferences به‌عنوان Singleton
     single {
@@ -31,13 +30,15 @@ val utilsModule = module {
             gson = get()
         )
     }
-    // ارائه FileLoggingTree به‌عنوان Singleton
-    single { FileLoggingTree(get()) }
+    single {
+        val fileManager: FileManager = get()
+        FileLoggingTree(fileManager.getOrCreateFile("logs", "error_log.txt"))
+    }
 
-    // ارائه LoggerHelper به‌عنوان Singleton
+
     single {
         LoggerHelper.apply {
-            init(get(), "error_log.txt") // تنظیمات اولیه لاگر
+            init(context = get(), tree = get())
         }
     }
     single { CameraHelper(get()) }

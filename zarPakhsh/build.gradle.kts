@@ -16,6 +16,7 @@ android {
         minSdk = 27
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
+        buildConfigField("String", "SIGNALR_URL", "\"https://signalr.zarpakhsh.com/hub\"")
     }
 
     flavorDimensions += "appType"
@@ -60,8 +61,6 @@ dependencies {
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
-    implementation(libs.material)
-    implementation(libs.androidx.compose.material)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -72,11 +71,7 @@ dependencies {
     implementation(libs.androidx.ui.graphics)
     implementation(libs.androidx.ui.tooling.preview)
     implementation(libs.androidx.material3)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
     androidTestImplementation(platform(libs.androidx.compose.bom))
-    implementation(libs.material3)
     implementation(project(":core"))
     //DB Room
     implementation(dependency.room.runtime)
@@ -102,8 +97,6 @@ dependencies {
     implementation(dependency.ktor.auth)
     implementation(dependency.ktor.core)
     implementation(dependency.ktor.resources)
-    implementation("io.ktor:ktor-client-core:3.1.2")
-    implementation("io.ktor:ktor-client-cio:3.1.2")
 
     // signalR
     implementation ("com.microsoft.signalr:signalr:5.0.4")

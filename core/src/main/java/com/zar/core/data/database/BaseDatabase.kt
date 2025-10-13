@@ -22,7 +22,8 @@ abstract class BaseDatabase : RoomDatabase() {
             context: Context,
             databaseClass: Class<T>,
             databaseName: String,
-            migrations: List<androidx.room.migration.Migration> = emptyList()
+            migrations: List<androidx.room.migration.Migration> = emptyList(),
+            useDestructiveMigration: Boolean = false
         ): T {
             return INSTANCE as? T ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -32,8 +33,10 @@ abstract class BaseDatabase : RoomDatabase() {
                 ).apply {
                     if (migrations.isNotEmpty()) {
                         addMigrations(*migrations.toTypedArray())
+                    } else if (useDestructiveMigration) {
+                        fallbackToDestructiveMigration()
                     }
-                }.fallbackToDestructiveMigration().build()
+                }.build()
                 INSTANCE = instance
                 instance as T
             }
@@ -41,27 +44,3 @@ abstract class BaseDatabase : RoomDatabase() {
     }
 }
 
-//. نحوه استفاده
-
-//@Database(entities = [UserEntity::class], version = 1)
-//abstract class AppDatabase : BaseDatabase() {
-//    abstract fun userDao(): UserDao
-//}
-//
-//// Entity
-//@Entity(tableName = "users")
-//data class UserEntity(
-//    @PrimaryKey(autoGenerate = true) val id: Long = 0,
-//    val name: String,
-//    val age: Int
-//)
-//
-//// DAO
-//@Dao
-//interface UserDao : BaseDao<UserEntity> {
-//    @Query("SELECT * FROM users WHERE id = :userId")
-//    suspend fun getUserById(userId: Long): UserEntity?
-//
-//    @Query("SELECT * FROM users")
-//    suspend fun getAllUsers(): List<UserEntity>
-//}

@@ -1,9 +1,11 @@
 package com.zar.zarpakhsh.data.local.entity
 
 import androidx.room.Entity
+import androidx.room.PrimaryKey
 
-@Entity("product_groups")
+@Entity(tableName = "product_groups")
 data class ProductGroupEntity(
+    @PrimaryKey
     val id: String,
     val name: String,
     val price: Double,

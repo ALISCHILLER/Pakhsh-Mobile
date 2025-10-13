@@ -6,14 +6,14 @@ import java.io.File
 import java.io.FileWriter
 import java.io.IOException
 
-class FileLoggingTree(private val logFile: File) : Timber.Tree() {
+class FileLoggingTree(internal val file: File) : Timber.Tree() {
 
     override fun log(priority: Int, tag: String?, message: String, t: Throwable?) {
         // ذخیره فقط خطاها و هشدارها
         if (priority == android.util.Log.ERROR || priority == android.util.Log.WARN) {
-            if (!logFile.exists()) {
+            if (!file.exists()) {
                 try {
-                    logFile.createNewFile()  // اگر فایل وجود ندارد، آن را بساز
+                    file.createNewFile()   // اگر فایل وجود ندارد، آن را بساز
                 } catch (e: IOException) {
                     Timber.e(e, "Error creating log file")
                 }
@@ -22,7 +22,7 @@ class FileLoggingTree(private val logFile: File) : Timber.Tree() {
             val logMessage = buildLogMessage(priority, tag, message, t)
 
             try {
-                val writer = FileWriter(logFile, true)
+                val writer = FileWriter(file, true)
                 writer.append(logMessage)
                 writer.append("\n")
                 writer.flush()

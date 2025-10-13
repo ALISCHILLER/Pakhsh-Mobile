@@ -9,6 +9,11 @@ import java.net.URL
 /**
  * یک شیء Singleton برای انجام کارهای کمکی مربوط به شبکه.
  */
+
+@Deprecated(
+    message = "Prefer NetworkStatusMonitor for lifecycle-aware connectivity state.",
+    replaceWith = ReplaceWith("NetworkStatusMonitor(context, httpClient)")
+)
 object NetworkUtils {
 
     /**

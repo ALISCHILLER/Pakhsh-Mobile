@@ -1,119 +1,260 @@
 package com.zar.core.data.network.handler
 
-import android.content.Context
-import com.zar.core.R
-import com.zar.core.data.network.error.*
-import com.zar.core.data.network.model.ApiResponse
+import com.zar.core.data.network.error.NetworkErrorMapper
+import com.zar.core.data.network.error.NetworkMetadata
+import com.zar.core.data.network.error.NetworkResult
+import com.zar.core.data.network.error.NetworkResult.Error
+import com.zar.core.data.network.error.NetworkResult.Success
+import com.zar.core.data.network.model.NetworkConfig
 import com.zar.core.data.network.utils.NetworkStatusMonitor
-import io.ktor.client.*
+import io.ktor.client.HttpClient
 import io.ktor.client.call.body
-import io.ktor.client.request.delete
-import io.ktor.client.request.get
-import io.ktor.client.request.head
-import io.ktor.client.request.patch
-import io.ktor.client.request.post
-import io.ktor.client.request.put
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.request.HttpRequestBuilder
+import io.ktor.client.request.request
 import io.ktor.client.request.setBody
-import kotlinx.coroutines.*
-import kotlinx.coroutines.flow.first
+import io.ktor.client.statement.HttpResponse
+import io.ktor.http.HttpMethod
+import io.ktor.http.Headers
+import io.ktor.http.takeFrom
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import timber.log.Timber
-
+import kotlin.coroutines.cancellation.CancellationException
 /**
- * NetworkHandler: مدیریت تمام درخواست‌های API و خطاهای آن‌ها
+ * Centralised entry point for executing network requests with shared error handling, metadata
+ * capture and connectivity awareness.
  */
-object NetworkHandler {
+class NetworkHandler(
+    private val client: HttpClient,
+    private val config: NetworkConfig,
+    private val networkMonitor: NetworkStatusMonitor,
+    private val errorMapper: NetworkErrorMapper,
+    private val dispatcher: CoroutineDispatcher = Dispatchers.IO,
+) {
 
-    public lateinit var appContext: Context
-    private lateinit var networkMonitor: NetworkStatusMonitor
-    lateinit var client: HttpClient
 
-    /**
-     * راه‌اندازی NetworkHandler
-     */
-    fun initialize(context: Context, monitor: NetworkStatusMonitor, httpClient: HttpClient) {
-        appContext = context.applicationContext
-        networkMonitor = monitor
-        client = httpClient
+    suspend inline fun <reified T> get(
+        endpoint: String,
+        requireConnection: Boolean = true,
+        crossinline builder: HttpRequestBuilder.() -> Unit = {},
+    ): NetworkResult<T> = execute(
+        method = HttpMethod.Get,
+        endpoint = endpoint,
+        requireConnection = requireConnection,
+        builder = builder,
+    ) { response -> response.body() }
+
+    suspend inline fun <reified T> post(
+        endpoint: String,
+        body: Any? = null,
+        requireConnection: Boolean = true,
+        crossinline builder: HttpRequestBuilder.() -> Unit = {},
+    ): NetworkResult<T> = execute(
+        method = HttpMethod.Post,
+        endpoint = endpoint,
+        requireConnection = requireConnection,
+        requestBody = body,
+        builder = builder,
+    ) { response -> response.body() }
+
+    suspend inline fun <reified T> put(
+        endpoint: String,
+        body: Any? = null,
+        requireConnection: Boolean = true,
+        crossinline builder: HttpRequestBuilder.() -> Unit = {},
+    ): NetworkResult<T> = execute(
+        method = HttpMethod.Put,
+        endpoint = endpoint,
+        requireConnection = requireConnection,
+        requestBody = body,
+        builder = builder,
+    ) { response -> response.body() }
+
+    suspend inline fun <reified T> patch(
+        endpoint: String,
+        body: Any? = null,
+        requireConnection: Boolean = true,
+        crossinline builder: HttpRequestBuilder.() -> Unit = {},
+    ): NetworkResult<T> = execute(
+        method = HttpMethod.Patch,
+        endpoint = endpoint,
+        requireConnection = requireConnection,
+        requestBody = body,
+        builder = builder,
+    ) { response -> response.body() }
+
+    suspend inline fun <reified T> delete(
+        endpoint: String,
+        requireConnection: Boolean = true,
+        crossinline builder: HttpRequestBuilder.() -> Unit = {},
+    ): NetworkResult<T> = execute(
+        method = HttpMethod.Delete,
+        endpoint = endpoint,
+        requireConnection = requireConnection,
+        builder = builder,
+    ) { response -> response.body() }
+
+    suspend inline fun <reified T> request(
+        method: HttpMethod,
+        endpoint: String,
+        requireConnection: Boolean = true,
+        body: Any? = null,
+        crossinline builder: HttpRequestBuilder.() -> Unit = {},
+    ): NetworkResult<T> = execute(
+        method = method,
+        endpoint = endpoint,
+        requireConnection = requireConnection,
+        requestBody = body,
+        builder = builder,
+    ) { response -> response.body() }
+
+    suspend inline fun <reified Raw, reified Output> request(
+        method: HttpMethod,
+        endpoint: String,
+        requireConnection: Boolean = true,
+        body: Any? = null,
+        crossinline builder: HttpRequestBuilder.() -> Unit = {},
+        crossinline transform: (Raw) -> Output,
+    ): NetworkResult<Output> {
+        return when (
+            val result = execute(
+                method = method,
+                endpoint = endpoint,
+                requireConnection = requireConnection,
+                requestBody = body,
+                builder = builder,
+            ) { response -> response.body<Raw>() }
+        ) {
+            is Success -> Success(transform(result.data), result.metadata)
+            is Error -> result
+            NetworkResult.Loading -> NetworkResult.Loading
+            NetworkResult.Idle -> NetworkResult.Idle
+        }
     }
 
-    /**
-     * متد عمومی برای انجام درخواست‌های API با مدیریت خطا
-     */
     suspend inline fun <reified T> safeApiCall(
         requireConnection: Boolean = true,
-        noinline apiCall: suspend () -> ApiResponse<T>
+        label: String? = null,
+        crossinline apiCall: suspend () -> HttpResponse,
+        crossinline parser: suspend (HttpResponse) -> T,
     ): NetworkResult<T> {
-        return try {
-            if (requireConnection && !hasNetworkConnection()) {
-                Timber.e("No network connection available")
-                return NetworkResult.Error(
-                    error = ConnectionError(
-                        errorCode = "network_unavailable",
-                        message = appContext.getString(R.string.error_no_connection),
-                        connectionType = null
-                    )
-                )
-            }
-            Timber.d("Performing API call...")
-            withContext(Dispatchers.IO) {
-                val response = apiCall()
-                handleApiResponse(response)
-            }
-
-        } catch (e: Exception) {
-            Timber.e(e, "API call failed: ${e}")
-            NetworkResult.Error.fromException(e, appContext)
-        }
-    }
-
-    /**
-     * پردازش پاسخ API و تبدیل به NetworkResult
-     */
-    public fun <T> handleApiResponse(response: ApiResponse<T>): NetworkResult<T> {
-        Timber.d("Handling API response: $response")
-        return if (!response.hasError) {
-            response.data?.let { data ->
-                NetworkResult.Success(data)
-            } ?: NetworkResult.Error(ParsingError(errorCode = "empty_data", message = "No data in response"))
+        val previousStatus = networkMonitor.lastKnownStatus()
+        val previousConnection = previousStatus as? NetworkStatusMonitor.NetworkStatus.Available
+        val refreshedStatus = if (requireConnection) {
+            networkMonitor.refreshStatus()
         } else {
-            Timber.e("API response error: ${response.message}, Code: ${response.code}")
-            NetworkResult.Error(ApiError(
-                errorCode = response.code.toString(),
-                message = response.message ?: "Server error occurred",
-                statusCode = response.code ?: -1
-            ))
+            previousStatus
+        }
+        val currentConnection = refreshedStatus as? NetworkStatusMonitor.NetworkStatus.Available
+        val effectiveConnection = currentConnection ?: previousConnection
+        val connectionType = effectiveConnection?.connectionType
+        val connectionTypeName = connectionType?.name
+
+        if (requireConnection && currentConnection == null) {
+            Timber.w("Skipping request. No active network for %s", label ?: "request")
+            return NetworkResult.Error(
+                error = errorMapper.noConnection(previousConnection?.connectionType),
+                metadata = NetworkMetadata(
+                    requestLabel = label,
+                    connectionType = connectionTypeName,
+                ),
+            )
+        }
+
+        return try {
+            label?.let { Timber.d("Performing API call: %s", it) }
+            val response = withContext(dispatcher) { apiCall() }
+            val metadata = response
+                .toMetadata(label)
+                .copy(connectionType = connectionTypeName)
+            val payload = withContext(dispatcher) { parser(response) }
+
+
+            Success(payload, metadata)
+        } catch (throwable: Throwable) {
+            if (throwable is CancellationException) throw throwable
+            Timber.e(throwable, "API call failed for %s", label ?: "request")
+            val errorMetadata = throwable.toErrorMetadata(label, connectionTypeName)
+            Error(
+                error = errorMapper.map(throwable),
+                cause = throwable,
+                metadata = errorMetadata,
+            )
         }
     }
 
-    /**
-     * بررسی وضعیت اتصال شبکه
-     */
-    public suspend fun hasNetworkConnection(): Boolean {
-        return when (networkMonitor.networkStatus.first()) {
-            is NetworkStatusMonitor.NetworkStatus.Available -> true
-            else -> false
+    private suspend inline fun <reified T> execute(
+        method: HttpMethod,
+        endpoint: String,
+        requireConnection: Boolean,
+        requestBody: Any? = null,
+        crossinline builder: HttpRequestBuilder.() -> Unit,
+        crossinline parser: suspend (HttpResponse) -> T,
+    ): NetworkResult<T> {
+        return safeApiCall(
+            requireConnection = requireConnection,
+            label = "${method.value} $endpoint",
+            apiCall = {
+                client.request {
+                    this.method = method
+                    applyEndpoint(endpoint)
+                    if (requestBody != null) {
+                        setBody(requestBody)
+                    }
+                    builder()
+                }
+            },
+            parser = parser,
+        )
+    }
+
+    private fun HttpRequestBuilder.applyEndpoint(endpoint: String) {
+        val target = when {
+            endpoint.isBlank() -> config.baseUrl
+            endpoint.startsWith("http://") || endpoint.startsWith("https://") -> endpoint
+            else -> buildString {
+                append(config.baseUrl.trimEnd('/'))
+                append('/')
+                append(endpoint.trimStart('/'))
+            }
+        }
+        url.takeFrom(target)
+    }
+
+    private fun HttpResponse.toMetadata(label: String?): NetworkMetadata {
+        return NetworkMetadata(
+            statusCode = status.value,
+            headers = headers.toMap(),
+            requestMethod = request.method.value,
+            requestUrl = request.url.toString(),
+            requestLabel = label,
+        )
+    }
+
+    private fun Throwable.toErrorMetadata(
+        label: String?,
+        connectionType: String?,
+    ): NetworkMetadata {
+        val response = (this as? ResponseException)?.response
+        return if (response != null) {
+            NetworkMetadata(
+                statusCode = response.status.value,
+                headers = response.headers.toMap(),
+                requestMethod = response.request.method.value,
+                requestUrl = response.request.url.toString(),
+                requestLabel = label,
+                connectionType = connectionType,
+            )
+        } else {
+            NetworkMetadata(
+                requestLabel = label,
+                connectionType = connectionType,
+            )
         }
     }
 
-    // ————————————————————————————————
-    // ✅ متدهای HTTP جدید
-    // ————————————————————————————————
-
-    suspend inline fun <reified T> get(url: String): NetworkResult<T> =
-        safeApiCall { client.get(url).body() }
-
-    suspend inline fun <reified T> post(url: String, body: Any): NetworkResult<T> =
-        safeApiCall { client.post(url) { setBody(body) }.body() }
-
-    suspend inline fun <reified T> put(url: String, body: Any): NetworkResult<T> =
-        safeApiCall { client.put(url) { setBody(body) }.body() }
-
-    suspend inline fun <reified T> delete(url: String): NetworkResult<T> =
-        safeApiCall { client.delete(url).body() }
-
-    suspend inline fun <reified T> patch(url: String, body: Any): NetworkResult<T> =
-        safeApiCall { client.patch(url) { setBody(body) }.body() }
-
-    suspend inline fun <reified T> head(url: String): NetworkResult<T> =
-        safeApiCall { client.head(url).body() }
+    private fun Headers.toMap(): Map<String, List<String>> =
+        names().associateWith { name -> getAll(name) ?: emptyList() }
 }

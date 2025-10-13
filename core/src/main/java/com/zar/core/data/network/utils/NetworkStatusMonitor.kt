@@ -6,24 +6,44 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
+import io.ktor.client.HttpClient
+import io.ktor.client.request.get
+import io.ktor.client.request.parameter
+import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.channels.awaitClose
-import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.flow.conflate
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
+import kotlin.jvm.Volatile
 
-class NetworkStatusMonitor(context: Context) {
+class NetworkStatusMonitor(
+    context: Context,
+    private val httpClient: HttpClient
+) {
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+
+    @Volatile
+    private var lastStatus: NetworkStatus = determineCurrentStatus()
 
     val networkStatus: Flow<NetworkStatus> = callbackFlow {
         val callback = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 Timber.d("Network available")
-                trySend(getCurrentNetworkStatus())
+                val status = determineCurrentStatus()
+                lastStatus = status
+                trySend(status)
             }
 
             override fun onLost(network: Network) {
                 Timber.w("Network lost")
-                trySend(NetworkStatus.Unavailable)
+                val status = NetworkStatus.Unavailable
+                lastStatus = status
+                trySend(status)
             }
 
             override fun onCapabilitiesChanged(
@@ -31,12 +51,16 @@ class NetworkStatusMonitor(context: Context) {
                 networkCapabilities: NetworkCapabilities
             ) {
                 Timber.d("Network capabilities changed")
-                trySend(getCurrentNetworkStatus())
+                val status = determineCurrentStatus()
+                lastStatus = status
+                trySend(status)
             }
 
             override fun onUnavailable() {
                 Timber.e("Network unavailable")
-                trySend(NetworkStatus.Unavailable)
+                val status = NetworkStatus.Unavailable
+                lastStatus = status
+                trySend(status)
             }
         }
 
@@ -52,12 +76,32 @@ class NetworkStatusMonitor(context: Context) {
             .build()
 
         connectivityManager.registerNetworkCallback(request, callback)
-        trySend(getCurrentNetworkStatus())
+        val initialStatus = determineCurrentStatus()
+        lastStatus = initialStatus
+        trySend(initialStatus)
 
         awaitClose { connectivityManager.unregisterNetworkCallback(callback) }
-    }.distinctUntilChanged()
+    }
+        .onEach { lastStatus = it }
+        .conflate()
+        .distinctUntilChanged()
 
     val isOnline: Flow<Boolean> = networkStatus.map { it is NetworkStatus.Available }
+
+    fun refreshStatus(): NetworkStatus {
+        val refreshed = determineCurrentStatus()
+        lastStatus = refreshed
+        return refreshed
+    }
+
+    fun hasNetworkConnection(): Boolean = lastStatus is NetworkStatus.Available
+
+    fun currentConnectionType(): ConnectionType? =
+        (lastStatus as? NetworkStatus.Available)?.connectionType
+
+    fun lastKnownStatus(): NetworkStatus = lastStatus
+
+    fun peekStatus(): NetworkStatus = lastStatus
 
     sealed class NetworkStatus {
         data class Available(val connectionType: ConnectionType) : NetworkStatus()
@@ -73,7 +117,7 @@ class NetworkStatusMonitor(context: Context) {
         fun isMetered(): Boolean = this == CELLULAR
     }
 
-    fun getCurrentNetworkStatus(): NetworkStatus {
+    private fun determineCurrentStatus(): NetworkStatus {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val network = connectivityManager.activeNetwork ?: return NetworkStatus.Unavailable
             val capabilities = connectivityManager.getNetworkCapabilities(network)
@@ -109,6 +153,19 @@ class NetworkStatusMonitor(context: Context) {
             } else {
                 NetworkStatus.Unavailable
             }
+        }
+    }
+    suspend fun isBackendReachable(path: String, query: Map<String, String?> = emptyMap()): Boolean {
+        return try {
+            val response = httpClient.get(path) {
+                query.forEach { (key, value) ->
+                    value?.let { parameter(key, it) }
+                }
+            }
+            response.status == HttpStatusCode.OK
+        } catch (throwable: Throwable) {
+            Timber.w(throwable, "Backend reachability check failed")
+            false
         }
     }
 }

@@ -6,7 +6,7 @@ import kotlinx.serialization.Serializable
 
 
 @Serializable
-@Entity("Products")
+@Entity(tableName = "products")
 data class ProductEntity(
     @PrimaryKey(autoGenerate = false)
     val id: String,

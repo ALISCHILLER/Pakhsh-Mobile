@@ -9,6 +9,7 @@ interface AppConfig {
     val appFlavor: String
     val sharedPreferencesName: String
     val databaseName: String
+    val signalRUrl: String
 }
 
 

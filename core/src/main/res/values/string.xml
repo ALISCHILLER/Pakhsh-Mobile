@@ -14,6 +14,7 @@
     <string name="error_not_found">موردی یافت نشد</string>
     <string name="error_conflict">تعارض در داده‌ها</string>
     <string name="error_unprocessable">امکان پردازش داده‌ها نیست</string>
+    <string name="error_client_generic">خطای سمت کاربر (کد: %1$d)</string>
     <string name="error_validation_failed">اعتبارسنجی شکست خورد</string>
     <string name="error_request_cancelled">درخواست کنسل شد</string>
 
@@ -21,6 +22,8 @@
     <string name="error_server">خطای داخلی سرور</string>
     <string name="error_server_generic">خطای عمومی سمت سرور</string>
     <string name="error_server_code">خطای سرور (کد: %1$d)</string>
+    <string name="error_parsing">مشکل در پردازش داده‌های دریافتی رخ داد</string>
+    <string name="error_redirect">درخواست نیاز به هدایت مجدد داشت (کد: %1$d)</string>
 
     <!-- Generic -->
     <string name="error_unknown">خطای ناشناخته‌ای رخ داده است</string>

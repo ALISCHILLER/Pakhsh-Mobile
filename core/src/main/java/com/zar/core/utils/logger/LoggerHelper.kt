@@ -9,20 +9,34 @@ import java.nio.charset.StandardCharsets
 object LoggerHelper {
 
     private lateinit var logFile: File
-
+    private var initialized = false
     /**
      * تنظیمات اولیه برای Timber
      */
-    fun init(context: Context, logFileName: String = "error_log.txt") {
+    fun init(
+        context: Context,
+        tree: FileLoggingTree? = null,
+        logFileName: String = "error_log.txt"
+    ) {
+        if (initialized) return
+
         val logDir = File(context.filesDir, "logs")
         if (!logDir.exists()) {
             logDir.mkdirs()
         }
 
-        logFile = File(logDir, logFileName)
+        val activeTree = tree ?: FileLoggingTree(File(logDir, logFileName))
+        plantIfMissing(activeTree)
+        logFile = activeTree.file
 
-        // راه‌اندازی Timber با Tree سفارشی برای نوشتن لاگ‌ها به فایل
-        Timber.plant(FileLoggingTree(logFile))
+        initialized = true
+    }
+
+    private fun plantIfMissing(tree: FileLoggingTree) {
+        val forest = Timber.forest()
+        if (!forest.contains(tree)) {
+            Timber.plant(tree)
+        }
     }
 
     // برای لاگ کردن پیام‌های Debug
