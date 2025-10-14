@@ -2,7 +2,6 @@ package com.zar.zarpakhsh.data.repository
 
 
 import com.zar.core.base.BaseRepository
-import com.zar.core.data.network.handler.NetworkHandler
 import com.zar.core.data.network.result.NetworkResult
 import com.zar.zarpakhsh.data.mappers.toDomain
 import com.zar.zarpakhsh.data.models.PokemonResponse

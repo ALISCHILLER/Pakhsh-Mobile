@@ -3,7 +3,6 @@ package com.zar.zarpakhsh.di
 import android.content.Context
 import com.zar.core.config.AppConfig
 import com.zar.core.data.network.handler.HttpClientFactory
-import com.zar.core.data.network.handler.NetworkHandler
 import com.zar.core.data.network.model.NetworkConfig
 import com.zar.core.data.network.utils.NetworkStatusMonitor
 import com.zar.zarpakhsh.data.local.storage.LocalDataSourceAuth

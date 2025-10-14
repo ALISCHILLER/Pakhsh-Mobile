@@ -1,7 +1,6 @@
 package com.zar.core.base
 
 
-import com.zar.core.data.network.handler.NetworkHandler
 import com.zar.core.data.network.result.NetworkResult
 import com.zar.core.data.network.result.NetworkResult.Success
 import com.zar.core.data.network.result.NetworkResultException
