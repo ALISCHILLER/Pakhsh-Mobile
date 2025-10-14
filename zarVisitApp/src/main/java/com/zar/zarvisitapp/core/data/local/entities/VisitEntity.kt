@@ -1,4 +1,4 @@
-package com.zar.zarvisitapp.data.local.entities
+package com.zar.zarvisitapp.core.data.local.entities
 
 
 import androidx.room.Entity

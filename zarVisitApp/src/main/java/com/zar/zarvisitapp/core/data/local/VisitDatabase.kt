@@ -1,6 +1,6 @@
 // zarvisitapp/src/main/java/com/zar/zarvisitapp/data/local/VisitDatabase.kt
 
-package com.zar.zarvisitapp.data.local
+package com.zar.zarvisitapp.core.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -16,8 +16,8 @@ import com.zar.zarpakhsh.data.local.entity.ProductEntity
 import com.zar.zarpakhsh.data.local.entity.ProductGroupEntity
 import com.zar.zarpakhsh.data.local.entity.ProductUnitEntity
 import com.zar.zarpakhsh.data.local.entity.UserModelEntity
-import com.zar.zarvisitapp.data.local.dao.VisitDao
-import com.zar.zarvisitapp.data.local.entities.VisitEntity
+import com.zar.zarvisitapp.core.data.local.dao.VisitDao
+import com.zar.zarvisitapp.core.data.local.entities.VisitEntity
 
 @Database(
     entities = [

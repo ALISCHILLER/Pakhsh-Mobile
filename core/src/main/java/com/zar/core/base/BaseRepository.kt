@@ -1,217 +1,80 @@
 package com.zar.core.base
 
 
+
+import com.zar.core.data.network.common.NetworkHandler
 import com.zar.core.data.network.result.NetworkResult
-import com.zar.core.data.network.result.NetworkResult.Success
-import com.zar.core.data.network.result.NetworkResultException
-import com.zar.core.data.network.result.map
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.http.HttpMethod
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.withContext
-
-open class BaseRepository protected constructor(
-    protected val networkHandler: NetworkHandler,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+import kotlinx.coroutines.flow.flowOn
+import timber.log.Timber
+open class BaseRepository(
+    protected val networkHandler: NetworkHandler = NetworkHandler
 ) {
+    /**
+     * پل امن برای دسترسی به عضو protected از درون public inline functions.
+     * @PublishedApi باعث می‌شود استفاده از آن در inline public مجاز باشد.
+     */
+    @PublishedApi
+    internal fun handler(): NetworkHandler = networkHandler
 
-    // region Suspend wrappers
-    suspend inline fun <reified T> get(
-        url: String,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): NetworkResult<T> = networkHandler.get(url, requireConnection, label, builder)
+    /**
+     * نسخهٔ داخلیِ asFlow تا public inlineها (مثل getAsFlow/…) بتوانند آن‌را صدا بزنند
+     * بدون نقض محدودیت visibility.
+     */
+    @PublishedApi
+    internal fun <T> asFlowInternal(block: suspend () -> NetworkResult<T>): Flow<NetworkResult<T>> =
+        flow {
+            emit(NetworkResult.Loading)
+            emit(block())
+        }.catch { e ->
+            Timber.e(e, "Error during network flow call")
+            // دسترسی به context از طریق handler() که @PublishedApi internal است
+            emit(NetworkResult.Error.fromException(e, handler().appContext))
+        }.flowOn(Dispatchers.IO)
+            .conflate()
 
-    suspend inline fun <reified T> post(
-        url: String,
-        body: Any? = null,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): NetworkResult<T> = networkHandler.post(url, body, requireConnection, label, builder)
+    // ---------- Suspend wrappers ----------
 
-    suspend inline fun <reified T> put(
-        url: String,
-        body: Any? = null,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): NetworkResult<T> = networkHandler.put(url, body, requireConnection, label, builder)
+    suspend inline fun <reified T> get(url: String): NetworkResult<T> =
+        handler().get(url)
 
-    suspend inline fun <reified T> patch(
-        url: String,
-        body: Any? = null,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): NetworkResult<T> = networkHandler.patch(url, body, requireConnection, label, builder)
+    suspend inline fun <reified Req, reified Res> post(url: String, body: Req): NetworkResult<Res> =
+        handler().post(url, body)
 
-    suspend inline fun <reified T> delete(
-        url: String,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): NetworkResult<T> = networkHandler.delete(url, requireConnection, label, builder)
+    suspend inline fun <reified Req, reified Res> put(url: String, body: Req): NetworkResult<Res> =
+        handler().put(url, body)
 
-    suspend inline fun <reified T> request(
-        method: HttpMethod,
-        url: String,
-        body: Any? = null,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): NetworkResult<T> =
-        networkHandler.request(method, url, requireConnection, body, label, builder)
+    suspend inline fun <reified Req, reified Res> patch(url: String, body: Req): NetworkResult<Res> =
+        handler().patch(url, body)
 
-    // --- Flow Helpers ---
+    suspend inline fun <reified T> delete(url: String): NetworkResult<T> =
+        handler().delete(url)
 
-    protected inline fun <reified T> requestFlow(
-        emitLoading: Boolean = true,
-        emitIdleFirst: Boolean = false,
-        distinctSuccess: Boolean = false,
-        noinline retryPolicy: (suspend (Throwable, Long) -> Boolean)? = null,
-        crossinline cachedValue: (suspend () -> T?)? = null,
-        crossinline block: suspend NetworkHandler.() -> NetworkResult<T>,
-    ): Flow<NetworkResult<T>> = flow {
-        if (emitIdleFirst) emit(NetworkResult.Idle)
+    suspend fun head(url: String): NetworkResult<Unit> =
+        handler().head(url)
 
-        cachedValue?.let { loader ->
-            val cached = withContext(ioDispatcher) { loader() }
-            cached?.let { emit(Success(it)) }
-        }
+    // ---------- Flow variants (Loading → Result) ----------
+    // این‌ها public inline هستن ولی فقط به توابع @PublishedApi internal دسترسی می‌زنن
 
-        if (emitLoading) emit(NetworkResult.Loading)
+    inline fun <reified T> getAsFlow(url: String): Flow<NetworkResult<T>> =
+        asFlowInternal { handler().get<T>(url) }
 
-        var attempt = 0L
-        var lastSuccess: T? = null
-        var hasEmittedSuccess = false
-        while (true) {
-            val result = withContext(ioDispatcher) { networkHandler.block() }
-            val shouldEmit = when {
-                result is Success && distinctSuccess && hasEmittedSuccess && lastSuccess == result.data -> false
-                else -> true
-            }
+    inline fun <reified Req, reified Res> postAsFlow(url: String, body: Req): Flow<NetworkResult<Res>> =
+        asFlowInternal { handler().post<Req, Res>(url, body) }
 
-            if (result is Success) {
-                lastSuccess = result.data
-                hasEmittedSuccess = true
-            }
+    inline fun <reified Req, reified Res> putAsFlow(url: String, body: Req): Flow<NetworkResult<Res>> =
+        asFlowInternal { handler().put<Req, Res>(url, body) }
 
-            if (shouldEmit) emit(result)
+    inline fun <reified Req, reified Res> patchAsFlow(url: String, body: Req): Flow<NetworkResult<Res>> =
+        asFlowInternal { handler().patch<Req, Res>(url, body) }
 
-            if (result is NetworkResult.Error) {
-                val throwable = result.cause ?: NetworkResultException(result.error, result.metadata)
-                val shouldRetry = retryPolicy?.invoke(throwable, attempt) == true
-                if (shouldRetry) {
-                    attempt++
-                    continue
-                }
-            }
-            break
-        }
-    }
+    inline fun <reified T> deleteAsFlow(url: String): Flow<NetworkResult<T>> =
+        asFlowInternal { handler().delete<T>(url) }
 
-    protected inline fun <reified In, reified Out> requestFlow(
-        emitLoading: Boolean = true,
-        emitIdleFirst: Boolean = false,
-        distinctSuccess: Boolean = false,
-        noinline retryPolicy: (suspend (Throwable, Long) -> Boolean)? = null,
-        crossinline cachedValue: (suspend () -> In?)? = null,
-        crossinline block: suspend NetworkHandler.() -> NetworkResult<In>,
-        crossinline mapper: (In) -> Out,
-    ): Flow<NetworkResult<Out>> {
-        return requestFlow(emitLoading, emitIdleFirst, distinctSuccess, retryPolicy, cachedValue, block)
-            .map { result -> result.map(mapper) }
-    }
-
-
-    // Convenience shorthands for migrating legacy repositories that expected *AsFlow helpers.
-
-    protected inline fun <reified T> getAsFlow(
-        url: String,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        emitLoading: Boolean = true,
-        emitIdleFirst: Boolean = false,
-        distinctSuccess: Boolean = false,
-        noinline retryPolicy: (suspend (Throwable, Long) -> Boolean)? = null,
-        crossinline cachedValue: (suspend () -> T?)? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): Flow<NetworkResult<T>> = requestFlow(
-        emitLoading = emitLoading,
-        emitIdleFirst = emitIdleFirst,
-        distinctSuccess = distinctSuccess,
-        retryPolicy = retryPolicy,
-        cachedValue = cachedValue,
-    ) {
-        get(url, requireConnection, label, builder)
-    }
-
-    protected inline fun <reified T> postAsFlow(
-        url: String,
-        body: Any? = null,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        emitLoading: Boolean = true,
-        emitIdleFirst: Boolean = false,
-        distinctSuccess: Boolean = false,
-        noinline retryPolicy: (suspend (Throwable, Long) -> Boolean)? = null,
-        crossinline cachedValue: (suspend () -> T?)? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): Flow<NetworkResult<T>> = requestFlow(
-        emitLoading = emitLoading,
-        emitIdleFirst = emitIdleFirst,
-        distinctSuccess = distinctSuccess,
-        retryPolicy = retryPolicy,
-        cachedValue = cachedValue,
-    ) {
-        post(url, body, requireConnection, label, builder)
-    }
-
-    protected inline fun <reified T> putAsFlow(
-        url: String,
-        body: Any? = null,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        emitLoading: Boolean = true,
-        emitIdleFirst: Boolean = false,
-        distinctSuccess: Boolean = false,
-        noinline retryPolicy: (suspend (Throwable, Long) -> Boolean)? = null,
-        crossinline cachedValue: (suspend () -> T?)? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): Flow<NetworkResult<T>> = requestFlow(
-        emitLoading = emitLoading,
-        emitIdleFirst = emitIdleFirst,
-        distinctSuccess = distinctSuccess,
-        retryPolicy = retryPolicy,
-        cachedValue = cachedValue,
-    ) {
-        put(url, body, requireConnection, label, builder)
-    }
-
-    protected inline fun <reified T> deleteAsFlow(
-        url: String,
-        requireConnection: Boolean = true,
-        label: String? = null,
-        emitLoading: Boolean = true,
-        emitIdleFirst: Boolean = false,
-        distinctSuccess: Boolean = false,
-        noinline retryPolicy: (suspend (Throwable, Long) -> Boolean)? = null,
-        crossinline cachedValue: (suspend () -> T?)? = null,
-        crossinline builder: HttpRequestBuilder.() -> Unit = {},
-    ): Flow<NetworkResult<T>> = requestFlow(
-        emitLoading = emitLoading,
-        emitIdleFirst = emitIdleFirst,
-        distinctSuccess = distinctSuccess,
-        retryPolicy = retryPolicy,
-        cachedValue = cachedValue,
-    ) {
-        delete(url, requireConnection, label, builder)
-    }
-
+    fun headAsFlow(url: String): Flow<NetworkResult<Unit>> =
+        asFlowInternal { handler().head(url) }
 }

@@ -12,8 +12,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.zar.zarpakhsh.BuildConfig
-import com.zar.zarpakhsh.presentation.screens.PokemonScreen
 import com.zar.zarpakhsh.utils.config.AppConfigZar
 import com.zar.zarvisitapp.ui.theme.ZarPakhshMobileTheme
 import org.koin.core.component.inject
@@ -29,7 +27,7 @@ class MainActivity : ComponentActivity() {
                     val appConfig = AppConfigZar
                     Log.e("MainActivity", "onCreate: ${appConfig.appFlavor}")
 
-                    PokemonScreen()
+
                 }
             }
         }

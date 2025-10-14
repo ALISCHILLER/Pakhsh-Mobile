@@ -1,139 +1,148 @@
-package com.zar.core.data.network.handler
+package com.zar.core.data.network.common
 
 import android.content.Context
+import com.zar.core.data.network.auth.AuthConfig
 import com.zar.core.data.network.model.NetworkConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpRequestRetry
-import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
+import io.ktor.client.plugins.auth.Auth
+import io.ktor.client.plugins.auth.providers.BearerTokens
+import io.ktor.client.plugins.auth.providers.bearer
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
-import io.ktor.client.request.HttpRequestBuilder
-import io.ktor.client.request.header
+import io.ktor.client.request.accept
+import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
+import io.ktor.http.contentType
 import io.ktor.http.takeFrom
 import io.ktor.serialization.kotlinx.json.json
-import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
 import okhttp3.CertificatePinner
 import timber.log.Timber
-import java.io.IOException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
-import kotlin.jvm.Volatile
 
-
-/**
- * Factory responsible for constructing a single [HttpClient] instance that is shared across the
- * application. All configuration (timeouts, logging, caching …) is centralized here to guarantee
- * consistent behaviour for every network request.
- */
 object HttpClientFactory {
 
-    @Volatile
-    private var currentToken: String? = null
+    // ───────────────────────────────
+    // Token fallback (وقتی AuthConfig ندادی)
+    // ───────────────────────────────
+    @Volatile private var currentToken: String? = null
+    fun setToken(token: String?) { currentToken = token }
+    fun clearToken() { currentToken = null }
 
     /**
-     * Allows callers (e.g. after a refresh token flow) to update the Authorization header that will
-     * be attached to every subsequent request.
-     */
-    fun updateAuthToken(token: String?) {
-        currentToken = token
-    }
-
-    /**
-     * Builds a configured [HttpClient]. The client is cheap to create but expensive to configure, so
-     * DI should expose it as a singleton.
+     * ساخت HttpClient با OkHttp و تنظیمات NetworkConfig
+     * @param auth اگر بدهی: Bearer + refreshTokens فعال می‌شود. اگر ندهی: از setToken/clearToken استفاده می‌کنیم.
      */
     fun create(
         context: Context,
         config: NetworkConfig = NetworkConfig.DEFAULT,
-        currentTokenOverride: String? = null,
-        additionalConfigurator: (HttpRequestBuilder.() -> Unit)? = null,
-    ): HttpClient {
-        val tokenToUse = currentTokenOverride ?: currentToken
-        return HttpClient(OkHttp) {
-            install(ContentNegotiation) {
-                json(
-                    Json {
-                        prettyPrint = true
-                        isLenient = true
-                        ignoreUnknownKeys = true
-                        explicitNulls = false
-                    },
-                )
-            }
+        auth: AuthConfig? = null
+    ): Lazy<HttpClient> = lazy {
+        HttpClient(OkHttp) {
+            expectSuccess = false
 
+            // JSON
+            install(ContentNegotiation) { json(jsonSerializer()) }
+
+            // Logging
             install(Logging) {
-                logger = object : Logger {
-                    override fun log(message: String) {
-                        Timber.tag("Network").v(message)
-                    }
-                }
-                level = if (config.loggingConfig.enabled) LogLevel.ALL else LogLevel.NONE
+                logger = object : Logger { override fun log(message: String) = Timber.tag("Network").v(message) }
+                level = if (config.logging.enabled) LogLevel.ALL else LogLevel.NONE
             }
 
+            // Timeouts
             install(HttpTimeout) {
                 connectTimeoutMillis = config.connectTimeout
-                socketTimeoutMillis = config.socketTimeout
+                socketTimeoutMillis  = config.socketTimeout
                 requestTimeoutMillis = config.requestTimeout
             }
+
+            // Retry (ساده و سازگار با Ktor 3.x)
             install(HttpRequestRetry) {
-                retryOnServerErrors(maxRetries = config.maxRetries)
-                retryOnExceptionIf { _, cause ->
-                    cause is IOException ||
-                            cause is TimeoutCancellationException ||
-                            cause is HttpRequestTimeoutException
-                }
+                retryOnExceptionOrServerErrors(maxRetries = config.maxRetries)
                 exponentialDelay()
             }
-            defaultRequest {
-                url.takeFrom(config.baseUrl)
-                header(HttpHeaders.Accept, "application/json")
-                header("Accept-Language", Locale.getDefault().language)
-                config.userAgent?.let { header(HttpHeaders.UserAgent, it) }
-                config.defaultHeaders.forEach { (name, value) ->
-                    header(name, value)
+
+            // Bearer Auth (اختیاری)
+            if (auth != null) {
+                install(Auth) {
+                    bearer {
+                        loadTokens {
+                            val access  = auth.tokenStore.accessToken()
+                            val refresh = auth.tokenStore.refreshToken()
+                            access?.let { BearerTokens(it, refresh.orEmpty()) }
+                        }
+                        refreshTokens {
+                            val oldAccess  = auth.tokenStore.accessToken()
+                            val oldRefresh = auth.tokenStore.refreshToken()
+                            val newPair    = auth.refresh(oldAccess, oldRefresh) // suspend
+                            if (newPair != null) {
+                                auth.tokenStore.updateTokens(newPair)            // suspend
+                                BearerTokens(newPair.accessToken, newPair.refreshToken.orEmpty())
+                            } else {
+                                auth.tokenStore.clear()                           // suspend
+                                null
+                            }
+                        }
+                        sendWithoutRequest { true } // همهٔ درخواست‌ها Bearer
+                    }
                 }
-                config.userAgent?.let { header(HttpHeaders.UserAgent, it) }
-                config.defaultHeaders.forEach { (name, value) ->
-                    header(name, value)
-                }
-                tokenToUse?.let { token ->
-                    header(HttpHeaders.Authorization, "Bearer $token")
-                }
-                additionalConfigurator?.invoke(this)
             }
 
+            // Default headers + baseUrl
+            defaultRequest {
+                // baseUrl (سازگار با Ktor 3.x)
+                url { takeFrom(config.baseUrl) }
+
+                // MIME/Locale
+                accept(ContentType.Application.Json)
+                contentType(ContentType.Application.Json)
+                headers.append(HttpHeaders.AcceptLanguage, Locale.getDefault().toLanguageTag())
+
+                // اگر Auth نصب نشده، Authorization دستی بفرست
+                if (auth == null) {
+                    currentToken?.takeIf { it.isNotBlank() }?.let {
+                        headers.append(HttpHeaders.Authorization, "Bearer $it")
+                    }
+                }
+            }
+
+            // OkHttp engine config (timeouts/cache/pinning)
             engine {
                 config {
                     connectTimeout(config.connectTimeout, TimeUnit.MILLISECONDS)
                     readTimeout(config.socketTimeout, TimeUnit.MILLISECONDS)
                     writeTimeout(config.requestTimeout, TimeUnit.MILLISECONDS)
 
-                    if (config.cacheConfig.enabled) {
-                        cache(Cache(context.cacheDir, config.cacheConfig.size))
+                    if (config.cache.enabled) {
+                        cache(Cache(context.cacheDir, config.cache.sizeBytes))
                     }
-                    if (
-                        config.sslConfig.pinningEnabled &&
-                        config.sslConfig.host.isNotBlank() &&
-                        config.sslConfig.certificates.isNotEmpty()
-                    ) {
-                        certificatePinner(
-                            CertificatePinner.Builder().apply {
-                                config.sslConfig.certificates.forEach { pattern ->
-                                    add(config.sslConfig.host, pattern)
-                                }
-                            }.build(),
-                        )
+                    if (config.ssl.pinningEnabled && config.ssl.hostToPins.isNotEmpty()) {
+                        val pinner = CertificatePinner.Builder().apply {
+                            config.ssl.hostToPins.forEach { (host, pins) ->
+                                pins.forEach { add(host, it) }
+                            }
+                        }.build()
+                        certificatePinner(pinner)
                     }
                 }
             }
         }
+    }
+
+    // JSON config
+    private fun jsonSerializer(): Json = Json {
+        prettyPrint = true
+        isLenient = true
+        ignoreUnknownKeys = true
+        explicitNulls = false
     }
 }

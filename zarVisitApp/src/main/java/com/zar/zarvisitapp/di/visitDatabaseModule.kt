@@ -1,10 +1,8 @@
 package com.zar.zarvisitapp.di
 
-import android.content.Context
 import androidx.room.Room
-import com.zar.zarvisitapp.data.local.VisitDatabase
+import com.zar.zarvisitapp.core.data.local.VisitDatabase
 
-import org.koin.android.ext.koin.androidApplication
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 

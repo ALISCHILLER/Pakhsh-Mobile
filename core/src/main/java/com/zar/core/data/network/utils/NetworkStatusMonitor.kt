@@ -1,5 +1,9 @@
 package com.zar.core.data.network.utils
 
+
+
+
+
 import android.content.Context
 import android.net.ConnectivityManager
 import android.net.Network
@@ -9,150 +13,91 @@ import android.os.Build
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
-import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
-import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
-import kotlin.jvm.Volatile
-import kotlinx.coroutines.withTimeoutOrNull
-import kotlinx.coroutines.flow.first
-
 
 
 class NetworkStatusMonitor(context: Context) {
-    private val connectivityManager =
-        context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
+    private val cm = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
-    @Volatile
-    private var lastStatus: NetworkStatus = determineCurrentStatus()
 
     val networkStatus: Flow<NetworkStatus> = callbackFlow {
-        val callback = object : ConnectivityManager.NetworkCallback() {
+        val cb = object : ConnectivityManager.NetworkCallback() {
             override fun onAvailable(network: Network) {
                 Timber.d("Network available")
-                val status = determineCurrentStatus()
-                lastStatus = status
-                trySend(status)
+                trySend(currentStatus())
             }
-
             override fun onLost(network: Network) {
                 Timber.w("Network lost")
-                val status = NetworkStatus.Unavailable
-                lastStatus = status
-                trySend(status)
+                trySend(NetworkStatus.Unavailable)
             }
-
-            override fun onCapabilitiesChanged(
-                network: Network,
-                networkCapabilities: NetworkCapabilities,
-            ) {
+            override fun onCapabilitiesChanged(n: Network, c: NetworkCapabilities) {
                 Timber.d("Network capabilities changed")
-                val status = determineCurrentStatus()
-                lastStatus = status
-                trySend(status)
+                trySend(currentStatus())
             }
-
             override fun onUnavailable() {
                 Timber.e("Network unavailable")
-                val status = NetworkStatus.Unavailable
-                lastStatus = status
-                trySend(status)
+                trySend(NetworkStatus.Unavailable)
             }
         }
 
-        val request = NetworkRequest.Builder()
+
+        val req = NetworkRequest.Builder()
             .addCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)
             .addTransportType(NetworkCapabilities.TRANSPORT_WIFI)
             .addTransportType(NetworkCapabilities.TRANSPORT_CELLULAR)
-            .apply {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-                    addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET)
-                }
-            }
+            .apply { if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) addTransportType(NetworkCapabilities.TRANSPORT_ETHERNET) }
             .build()
 
-        connectivityManager.registerNetworkCallback(request, callback)
-        val initialStatus = determineCurrentStatus()
-        lastStatus = initialStatus
-        trySend(initialStatus)
 
-        awaitClose { connectivityManager.unregisterNetworkCallback(callback) }
-    }
-        .onEach { lastStatus = it }
-        .conflate()
-        .distinctUntilChanged()
+        cm.registerNetworkCallback(req, cb)
+        trySend(currentStatus())
+        awaitClose { cm.unregisterNetworkCallback(cb) }
+    }.distinctUntilChanged()
+
 
     val isOnline: Flow<Boolean> = networkStatus.map { it is NetworkStatus.Available }
 
-    fun refreshStatus(): NetworkStatus {
-        val refreshed = determineCurrentStatus()
-        lastStatus = refreshed
-        return refreshed
-    }
-
-    fun hasNetworkConnection(): Boolean = lastStatus is NetworkStatus.Available
-
-    fun currentConnectionType(): ConnectionType? =
-        (lastStatus as? NetworkStatus.Available)?.connectionType
-
-    fun lastKnownStatus(): NetworkStatus = lastStatus
-
-
-    suspend fun awaitAvailability(timeoutMillis: Long = 5_000): Boolean {
-        val availableStatus = withTimeoutOrNull(timeoutMillis) {
-            networkStatus.first { it is NetworkStatus.Available }
-        }
-        return availableStatus is NetworkStatus.Available
-    }
 
     sealed class NetworkStatus {
         data class Available(val connectionType: ConnectionType) : NetworkStatus()
         object Unavailable : NetworkStatus()
     }
 
-    enum class ConnectionType {
-        WIFI,
-        CELLULAR,
-        ETHERNET,
-        UNKNOWN;
 
-        fun isMetered(): Boolean = this == CELLULAR
-    }
+    enum class ConnectionType { WIFI, CELLULAR, ETHERNET, UNKNOWN; fun isMetered() = this == CELLULAR }
 
-    private fun determineCurrentStatus(): NetworkStatus {
+
+    fun currentStatus(): NetworkStatus {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
-            val network = connectivityManager.activeNetwork ?: return NetworkStatus.Unavailable
-            val capabilities = connectivityManager.getNetworkCapabilities(network)
-                ?: return NetworkStatus.Unavailable
-
-            if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
-                val type = when {
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> ConnectionType.WIFI
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> ConnectionType.CELLULAR
-                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> ConnectionType.ETHERNET
-                    else -> ConnectionType.UNKNOWN
-                }
-                NetworkStatus.Available(type)
-            } else {
-                NetworkStatus.Unavailable
+            val n = cm.activeNetwork ?: return NetworkStatus.Unavailable
+            val caps = cm.getNetworkCapabilities(n) ?: return NetworkStatus.Unavailable
+            if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) return NetworkStatus.Unavailable
+            val type = when {
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> ConnectionType.WIFI
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> ConnectionType.CELLULAR
+                caps.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> ConnectionType.ETHERNET
+                else -> ConnectionType.UNKNOWN
             }
+            NetworkStatus.Available(type)
         } else {
             @Suppress("DEPRECATION")
-            val info = connectivityManager.activeNetworkInfo
-            if (info?.isConnected == true) {
-                @Suppress("DEPRECATION")
-                val type = when (info.type) {
-                    ConnectivityManager.TYPE_WIFI -> ConnectionType.WIFI
-                    ConnectivityManager.TYPE_MOBILE -> ConnectionType.CELLULAR
-                    ConnectivityManager.TYPE_ETHERNET -> ConnectionType.ETHERNET
-                    else -> ConnectionType.UNKNOWN
-                }
-                NetworkStatus.Available(type)
-            } else {
-                NetworkStatus.Unavailable
-            }
+            cm.activeNetworkInfo?.let { info ->
+                if (info.isConnected) {
+                    val type = when (info.type) {
+                        ConnectivityManager.TYPE_WIFI -> ConnectionType.WIFI
+                        ConnectivityManager.TYPE_MOBILE -> ConnectionType.CELLULAR
+                        ConnectivityManager.TYPE_ETHERNET -> ConnectionType.ETHERNET
+                        else -> ConnectionType.UNKNOWN
+                    }
+                    NetworkStatus.Available(type)
+                } else NetworkStatus.Unavailable
+            } ?: NetworkStatus.Unavailable
         }
     }
 
+
+    // Backward-compat alias
+    fun getCurrentNetworkStatus(): NetworkStatus = currentStatus()
 }

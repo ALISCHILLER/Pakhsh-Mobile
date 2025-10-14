@@ -1,10 +1,10 @@
-package com.zar.zarvisitapp.data.local.dao
+package com.zar.zarvisitapp.core.data.local.dao
 
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import com.zar.zarvisitapp.data.local.entities.VisitEntity
+import com.zar.zarvisitapp.core.data.local.entities.VisitEntity
 
 @Dao
 interface VisitDao {

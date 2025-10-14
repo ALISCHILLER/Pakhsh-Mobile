@@ -1,9 +1,6 @@
 package com.zar.core.di
 
-import com.zar.core.data.network.error.NetworkErrorMapper
-import com.zar.core.data.network.handler.HttpClientFactory
 import com.zar.core.data.network.model.NetworkConfig
-import com.zar.core.data.network.utils.NetworkStatusMonitor
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
