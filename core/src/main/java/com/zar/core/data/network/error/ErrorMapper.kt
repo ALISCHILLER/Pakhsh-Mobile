@@ -1,11 +1,16 @@
 package com.zar.core.data.network.error
 
 
-import com.msa.finhub.R
-import com.zar.core.data.network.network.common.StringProvider
-import com.zar.core.data.network.network.handler.NetworkException
-
-import io.ktor.client.plugins.*
+import com.zar.core.R
+import com.zar.core.data.network.common.StringProvider
+import com.zar.core.data.network.utils.NetworkStatusMonitor
+import io.ktor.client.plugins.ClientRequestException
+import io.ktor.client.plugins.HttpRequestTimeoutException
+import io.ktor.client.plugins.RedirectResponseException
+import io.ktor.client.plugins.ResponseException
+import io.ktor.client.plugins.ServerResponseException
+import io.ktor.http.HttpStatusCode
+import kotlinx.coroutines.CancellationException
 import kotlinx.serialization.SerializationException
 import java.net.ConnectException
 import java.net.SocketTimeoutException
@@ -13,24 +18,42 @@ import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
 
-fun Throwable.toAppError(strings: StringProvider): AppError = when (this) {
-    is NetworkException -> when (errorCode) {
-        NetworkException.NetworkErrorCode.NETWORK_UNAVAILABLE ->
-            ConnectionError("network_unavailable", strings.get(R.string.error_no_connection), connectionType)
-        NetworkException.NetworkErrorCode.TIMEOUT ->
-            TimeoutError("request_timeout", strings.get(R.string.error_timeout))
-        NetworkException.NetworkErrorCode.SERVER_ERROR,
-        NetworkException.NetworkErrorCode.SERVER_GENERIC ->
-            ApiError(errorCode.code.toString(), strings.get(R.string.error_server), statusCode = errorCode.code)
-        NetworkException.NetworkErrorCode.BAD_REQUEST,
-        NetworkException.NetworkErrorCode.UNAUTHORIZED,
-        NetworkException.NetworkErrorCode.FORBIDDEN,
-        NetworkException.NetworkErrorCode.NOT_FOUND,
-        NetworkException.NetworkErrorCode.CONFLICT,
-        NetworkException.NetworkErrorCode.UNPROCESSABLE,
-        NetworkException.NetworkErrorCode.LARGE_DOWNLOAD ->
-            ApiError(errorCode.code.toString(), message, statusCode = errorCode.code)
-        else -> UnknownError(message = strings.get(R.string.error_unknown))
+class ErrorMapper(private val strings: StringProvider) {
+
+    fun fromThrowable(throwable: Throwable): AppError {
+        if (throwable is CancellationException) throw throwable
+
+        return when (throwable) {
+            is HttpRequestTimeoutException,
+            is SocketTimeoutException -> TimeoutError(
+                errorCode = "request_timeout",
+                message = strings.get(R.string.error_timeout)
+            )
+
+            is UnknownHostException,
+            is ConnectException -> ConnectionError(
+                errorCode = "dns_or_connect_error",
+                message = strings.get(R.string.error_no_connection)
+            )
+
+            is SSLException -> ConnectionError(
+                errorCode = "ssl_error",
+                message = strings.get(R.string.error_unknown)
+            )
+
+            is RedirectResponseException -> fromStatusCode(throwable.response.status.value)
+            is ClientRequestException -> mapClientError(throwable)
+            is ServerResponseException -> fromStatusCode(throwable.response.status.value)
+            is ResponseException -> fromStatusCode(throwable.response.status.value)
+            is SerializationException -> ParsingError(
+                errorCode = "serialization_error",
+                message = strings.get(R.string.error_parsing)
+            )
+
+            else -> UnknownError(
+                message = strings.get(R.string.error_unknown)
+            )
+        }
     }
 
 
