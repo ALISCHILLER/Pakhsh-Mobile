@@ -6,10 +6,6 @@ import android.net.Network
 import android.net.NetworkCapabilities
 import android.net.NetworkRequest
 import android.os.Build
-import io.ktor.client.HttpClient
-import io.ktor.client.request.get
-import io.ktor.client.request.parameter
-import io.ktor.http.HttpStatusCode
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -19,11 +15,12 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
 import timber.log.Timber
 import kotlin.jvm.Volatile
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlinx.coroutines.flow.first
 
-class NetworkStatusMonitor(
-    context: Context,
-    private val httpClient: HttpClient
-) {
+
+
+class NetworkStatusMonitor(context: Context) {
     private val connectivityManager =
         context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 
@@ -48,7 +45,7 @@ class NetworkStatusMonitor(
 
             override fun onCapabilitiesChanged(
                 network: Network,
-                networkCapabilities: NetworkCapabilities
+                networkCapabilities: NetworkCapabilities,
             ) {
                 Timber.d("Network capabilities changed")
                 val status = determineCurrentStatus()
@@ -101,7 +98,13 @@ class NetworkStatusMonitor(
 
     fun lastKnownStatus(): NetworkStatus = lastStatus
 
-    fun peekStatus(): NetworkStatus = lastStatus
+
+    suspend fun awaitAvailability(timeoutMillis: Long = 5_000): Boolean {
+        val availableStatus = withTimeoutOrNull(timeoutMillis) {
+            networkStatus.first { it is NetworkStatus.Available }
+        }
+        return availableStatus is NetworkStatus.Available
+    }
 
     sealed class NetworkStatus {
         data class Available(val connectionType: ConnectionType) : NetworkStatus()
@@ -123,49 +126,33 @@ class NetworkStatusMonitor(
             val capabilities = connectivityManager.getNetworkCapabilities(network)
                 ?: return NetworkStatus.Unavailable
 
-            when {
-                capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) -> {
-                    val type = when {
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) ->
-                            ConnectionType.WIFI
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) ->
-                            ConnectionType.CELLULAR
-                        capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) ->
-                            ConnectionType.ETHERNET
-                        else -> ConnectionType.UNKNOWN
-                    }
-                    NetworkStatus.Available(type)
+            if (capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
+                val type = when {
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) -> ConnectionType.WIFI
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_CELLULAR) -> ConnectionType.CELLULAR
+                    capabilities.hasTransport(NetworkCapabilities.TRANSPORT_ETHERNET) -> ConnectionType.ETHERNET
+                    else -> ConnectionType.UNKNOWN
                 }
-                else -> NetworkStatus.Unavailable
+                NetworkStatus.Available(type)
+            } else {
+                NetworkStatus.Unavailable
             }
         } else {
             @Suppress("DEPRECATION")
             val info = connectivityManager.activeNetworkInfo
             if (info?.isConnected == true) {
-                NetworkStatus.Available(
-                    when (info.type) {
-                        ConnectivityManager.TYPE_WIFI -> ConnectionType.WIFI
-                        ConnectivityManager.TYPE_MOBILE -> ConnectionType.CELLULAR
-                        ConnectivityManager.TYPE_ETHERNET -> ConnectionType.ETHERNET
-                        else -> ConnectionType.UNKNOWN
-                    }
-                )
+                @Suppress("DEPRECATION")
+                val type = when (info.type) {
+                    ConnectivityManager.TYPE_WIFI -> ConnectionType.WIFI
+                    ConnectivityManager.TYPE_MOBILE -> ConnectionType.CELLULAR
+                    ConnectivityManager.TYPE_ETHERNET -> ConnectionType.ETHERNET
+                    else -> ConnectionType.UNKNOWN
+                }
+                NetworkStatus.Available(type)
             } else {
                 NetworkStatus.Unavailable
             }
         }
     }
-    suspend fun isBackendReachable(path: String, query: Map<String, String?> = emptyMap()): Boolean {
-        return try {
-            val response = httpClient.get(path) {
-                query.forEach { (key, value) ->
-                    value?.let { parameter(key, it) }
-                }
-            }
-            response.status == HttpStatusCode.OK
-        } catch (throwable: Throwable) {
-            Timber.w(throwable, "Backend reachability check failed")
-            false
-        }
-    }
+
 }

@@ -23,4 +23,11 @@ object AppConfigZar : AppConfig {
             "distribute" -> "distribute_database"
             else -> "default_database"
         }
+    override val signalRUrl: String
+        get() = when (appFlavor) {
+            "visit" -> "https://signalr.visit.zar.com/hub"
+            "supervisor" -> "https://signalr.supervisor.zar.com/hub"
+            "distribute" -> "https://signalr.distribute.zar.com/hub"
+            else -> "https://signalr.zar.com/hub"
+        }
 }

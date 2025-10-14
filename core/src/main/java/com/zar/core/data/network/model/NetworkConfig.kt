@@ -13,10 +13,12 @@ data class NetworkConfig(
     val baseUrl: String = "https://pokeapi.co/api/v2/",
     val loggingConfig: LoggingConfig = LoggingConfig(),
     val sslConfig: SSLConfig = SSLConfig(),
-    val cacheConfig: CacheConfig = CacheConfig()
+    val cacheConfig: CacheConfig = CacheConfig(),
+    val defaultHeaders: Map<String, String> = emptyMap(),
+    val userAgent: String? = null,
 ) {
     companion object {
-        val DEFAULT = NetworkConfig()
+        val DEFAULT: NetworkConfig = NetworkConfig()
     }
 }
 
@@ -25,10 +27,9 @@ data class LoggingConfig(
 )
 
 data class SSLConfig(
-    val pinningEnabled: Boolean = true,
-    val certificates: List<String> = listOf(
-        "sha256/ABCDEF..." // جایگزین با hash واقعی
-    )
+    val pinningEnabled: Boolean = false,
+    val host: String = "",
+    val certificates: List<String> = emptyList(),
 )
 
 data class CacheConfig(

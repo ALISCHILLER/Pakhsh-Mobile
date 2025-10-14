@@ -8,17 +8,15 @@ import com.zar.core.data.network.utils.NetworkStatusMonitor
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 
-val networkModule = module {
+val coreModule = module {
 
 
     single { NetworkConfig.DEFAULT }
 
+    single { NetworkErrorMapper() }
+    single { NetworkStatusMonitor(androidContext()) }
+
     single { HttpClientFactory.create(androidContext(), get()) }
-
-
-    single { NetworkStatusMonitor(androidContext(), get()) }
-
-    single { NetworkErrorMapper(androidContext()) }
 
 
     single {

@@ -1,15 +1,13 @@
 package com.zar.zarpakhsh.data.repository
 
 import com.zar.core.base.BaseRepository
-import com.zar.core.base.map
-import com.zar.core.data.network.error.NetworkResult
+import com.zar.core.data.network.result.NetworkResult
 import com.zar.core.data.network.handler.NetworkHandler
 import com.zar.zarpakhsh.data.local.dao.ProductDao
 import com.zar.zarpakhsh.data.local.dao.ProductGroupDao
 import com.zar.zarpakhsh.data.local.entity.ProductEntity
 import com.zar.zarpakhsh.data.local.entity.ProductGroupEntity
 import com.zar.zarpakhsh.data.local.entity.ProductUnitEntity
-import com.zar.zarpakhsh.data.mappers.toDomain
 import com.zar.zarpakhsh.data.remote.ApiEndpoints
 import com.zar.zarpakhsh.domain.repository.ProductRepository
 import kotlinx.coroutines.flow.Flow

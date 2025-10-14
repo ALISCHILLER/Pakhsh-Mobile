@@ -1,10 +1,10 @@
 package com.zar.core.data.network.handler
 
 import com.zar.core.data.network.error.NetworkErrorMapper
-import com.zar.core.data.network.error.NetworkMetadata
-import com.zar.core.data.network.error.NetworkResult
-import com.zar.core.data.network.error.NetworkResult.Error
-import com.zar.core.data.network.error.NetworkResult.Success
+import com.zar.core.data.network.result.NetworkMetadata
+import com.zar.core.data.network.result.NetworkResult
+import com.zar.core.data.network.result.NetworkResult.Error
+import com.zar.core.data.network.result.NetworkResult.Success
 import com.zar.core.data.network.model.NetworkConfig
 import com.zar.core.data.network.utils.NetworkStatusMonitor
 import io.ktor.client.HttpClient
@@ -38,11 +38,13 @@ class NetworkHandler(
     suspend inline fun <reified T> get(
         endpoint: String,
         requireConnection: Boolean = true,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit = {},
     ): NetworkResult<T> = execute(
         method = HttpMethod.Get,
         endpoint = endpoint,
         requireConnection = requireConnection,
+        label = label
         builder = builder,
     ) { response -> response.body() }
 
@@ -50,12 +52,14 @@ class NetworkHandler(
         endpoint: String,
         body: Any? = null,
         requireConnection: Boolean = true,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit = {},
     ): NetworkResult<T> = execute(
         method = HttpMethod.Post,
         endpoint = endpoint,
         requireConnection = requireConnection,
         requestBody = body,
+        label = label,
         builder = builder,
     ) { response -> response.body() }
 
@@ -63,12 +67,14 @@ class NetworkHandler(
         endpoint: String,
         body: Any? = null,
         requireConnection: Boolean = true,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit = {},
     ): NetworkResult<T> = execute(
         method = HttpMethod.Put,
         endpoint = endpoint,
         requireConnection = requireConnection,
         requestBody = body,
+        label = label,
         builder = builder,
     ) { response -> response.body() }
 
@@ -76,23 +82,27 @@ class NetworkHandler(
         endpoint: String,
         body: Any? = null,
         requireConnection: Boolean = true,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit = {},
     ): NetworkResult<T> = execute(
         method = HttpMethod.Patch,
         endpoint = endpoint,
         requireConnection = requireConnection,
         requestBody = body,
+        label = label,
         builder = builder,
     ) { response -> response.body() }
 
     suspend inline fun <reified T> delete(
         endpoint: String,
         requireConnection: Boolean = true,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit = {},
     ): NetworkResult<T> = execute(
         method = HttpMethod.Delete,
         endpoint = endpoint,
         requireConnection = requireConnection,
+        label = label,
         builder = builder,
     ) { response -> response.body() }
 
@@ -101,12 +111,14 @@ class NetworkHandler(
         endpoint: String,
         requireConnection: Boolean = true,
         body: Any? = null,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit = {},
     ): NetworkResult<T> = execute(
         method = method,
         endpoint = endpoint,
         requireConnection = requireConnection,
         requestBody = body,
+        label = label,
         builder = builder,
     ) { response -> response.body() }
 
@@ -115,6 +127,7 @@ class NetworkHandler(
         endpoint: String,
         requireConnection: Boolean = true,
         body: Any? = null,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit = {},
         crossinline transform: (Raw) -> Output,
     ): NetworkResult<Output> {
@@ -124,6 +137,7 @@ class NetworkHandler(
                 endpoint = endpoint,
                 requireConnection = requireConnection,
                 requestBody = body,
+                label = label,
                 builder = builder,
             ) { response -> response.body<Raw>() }
         ) {
@@ -140,6 +154,7 @@ class NetworkHandler(
         crossinline apiCall: suspend () -> HttpResponse,
         crossinline parser: suspend (HttpResponse) -> T,
     ): NetworkResult<T> {
+        val effectiveLabel = label ?: "request"
         val previousStatus = networkMonitor.lastKnownStatus()
         val previousConnection = previousStatus as? NetworkStatusMonitor.NetworkStatus.Available
         val refreshedStatus = if (requireConnection) {
@@ -148,26 +163,28 @@ class NetworkHandler(
             previousStatus
         }
         val currentConnection = refreshedStatus as? NetworkStatusMonitor.NetworkStatus.Available
-        val effectiveConnection = currentConnection ?: previousConnection
-        val connectionType = effectiveConnection?.connectionType
-        val connectionTypeName = connectionType?.name
+        var connectionTypeName = (currentConnection ?: previousConnection)?.connectionType?.name
 
         if (requireConnection && currentConnection == null) {
-            Timber.w("Skipping request. No active network for %s", label ?: "request")
-            return NetworkResult.Error(
-                error = errorMapper.noConnection(previousConnection?.connectionType),
-                metadata = NetworkMetadata(
-                    requestLabel = label,
-                    connectionType = connectionTypeName,
-                ),
-            )
+            val becameAvailable = networkMonitor.awaitAvailability(CONNECTION_GRACE_PERIOD_MS)
+            if (!becameAvailable) {
+                Timber.w("Skipping request. No active network for %s", effectiveLabel)
+                return Error(
+                    error = errorMapper.noConnection(),
+                    metadata = NetworkMetadata(
+                        requestLabel = effectiveLabel,
+                        connectionType = connectionTypeName,
+                    ),
+                )
+            }
+            connectionTypeName = networkMonitor.currentConnectionType()?.name ?: connectionTypeName
         }
 
         return try {
-            label?.let { Timber.d("Performing API call: %s", it) }
+            Timber.tag(NETWORK_LOG_TAG).d("Performing API call: %s", effectiveLabel)
             val response = withContext(dispatcher) { apiCall() }
             val metadata = response
-                .toMetadata(label)
+                .toMetadata(effectiveLabel)
                 .copy(connectionType = connectionTypeName)
             val payload = withContext(dispatcher) { parser(response) }
 
@@ -175,8 +192,8 @@ class NetworkHandler(
             Success(payload, metadata)
         } catch (throwable: Throwable) {
             if (throwable is CancellationException) throw throwable
-            Timber.e(throwable, "API call failed for %s", label ?: "request")
-            val errorMetadata = throwable.toErrorMetadata(label, connectionTypeName)
+            Timber.tag(NETWORK_LOG_TAG).e(throwable, "API call failed for %s", effectiveLabel)
+            val errorMetadata = throwable.toErrorMetadata(effectiveLabel, connectionTypeName)
             Error(
                 error = errorMapper.map(throwable),
                 cause = throwable,
@@ -190,12 +207,14 @@ class NetworkHandler(
         endpoint: String,
         requireConnection: Boolean,
         requestBody: Any? = null,
+        label: String? = null,
         crossinline builder: HttpRequestBuilder.() -> Unit,
         crossinline parser: suspend (HttpResponse) -> T,
     ): NetworkResult<T> {
+        val effectiveLabel = label ?: "${method.value} $endpoint"
         return safeApiCall(
             requireConnection = requireConnection,
-            label = "${method.value} $endpoint",
+            label = label ?: "${method.value} $endpoint",
             apiCall = {
                 client.request {
                     this.method = method
@@ -227,9 +246,11 @@ class NetworkHandler(
         return NetworkMetadata(
             statusCode = status.value,
             headers = headers.toMap(),
-            requestMethod = request.method.value,
-            requestUrl = request.url.toString(),
             requestLabel = label,
+            connectionType = null,
+            method = request.method.value,
+            url = request.url.toString(),
+            traceId = headers[TRACE_ID_HEADER],
         )
     }
 
@@ -242,10 +263,11 @@ class NetworkHandler(
             NetworkMetadata(
                 statusCode = response.status.value,
                 headers = response.headers.toMap(),
-                requestMethod = response.request.method.value,
-                requestUrl = response.request.url.toString(),
                 requestLabel = label,
                 connectionType = connectionType,
+                method = response.request.method.value,
+                url = response.request.url.toString(),
+                traceId = response.headers[TRACE_ID_HEADER],
             )
         } else {
             NetworkMetadata(
@@ -257,4 +279,10 @@ class NetworkHandler(
 
     private fun Headers.toMap(): Map<String, List<String>> =
         names().associateWith { name -> getAll(name) ?: emptyList() }
+
+    companion object {
+        private const val CONNECTION_GRACE_PERIOD_MS = 2_000L
+        private const val NETWORK_LOG_TAG = "Network"
+        private const val TRACE_ID_HEADER = "X-Trace-Id"
+    }
 }

@@ -1,19 +1,14 @@
 package com.zar.zarpakhsh.presentation.viewModel
 
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zar.core.data.network.error.NetworkResult
+import com.zar.core.data.network.result.NetworkResult
 import com.zar.zarpakhsh.data.models.LoginRequest
-import com.zar.zarpakhsh.data.models.LoginResponse
 import com.zar.zarpakhsh.domain.usecase.LoginUseCase
 import com.zar.zarpakhsh.domain.usecase.ValidateCredentialsUseCase
 import com.zar.zarpakhsh.domain.usecase.ValidationResult
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.launchIn
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 
 /**

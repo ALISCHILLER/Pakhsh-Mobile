@@ -1,6 +1,6 @@
 package com.zar.zarpakhsh.domain.repository
 
-import com.zar.core.data.network.error.NetworkResult
+import com.zar.core.data.network.result.NetworkResult
 import com.zar.zarpakhsh.data.local.entity.ProductEntity
 import com.zar.zarpakhsh.data.local.entity.ProductGroupEntity
 import com.zar.zarpakhsh.data.local.entity.ProductUnitEntity

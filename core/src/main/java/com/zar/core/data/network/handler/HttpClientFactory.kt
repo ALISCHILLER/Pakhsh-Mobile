@@ -5,6 +5,7 @@ import com.zar.core.data.network.model.NetworkConfig
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpRequestRetry
+import io.ktor.client.plugins.HttpRequestTimeoutException
 import io.ktor.client.plugins.HttpTimeout
 import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
@@ -19,10 +20,12 @@ import io.ktor.serialization.kotlinx.json.json
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.serialization.json.Json
 import okhttp3.Cache
+import okhttp3.CertificatePinner
 import timber.log.Timber
 import java.io.IOException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.jvm.Volatile
 
 
 /**
@@ -32,6 +35,7 @@ import java.util.concurrent.TimeUnit
  */
 object HttpClientFactory {
 
+    @Volatile
     private var currentToken: String? = null
 
     /**
@@ -49,8 +53,10 @@ object HttpClientFactory {
     fun create(
         context: Context,
         config: NetworkConfig = NetworkConfig.DEFAULT,
+        currentTokenOverride: String? = null,
         additionalConfigurator: (HttpRequestBuilder.() -> Unit)? = null,
     ): HttpClient {
+        val tokenToUse = currentTokenOverride ?: currentToken
         return HttpClient(OkHttp) {
             install(ContentNegotiation) {
                 json(
@@ -80,7 +86,9 @@ object HttpClientFactory {
             install(HttpRequestRetry) {
                 retryOnServerErrors(maxRetries = config.maxRetries)
                 retryOnExceptionIf { _, cause ->
-                    cause is IOException || cause is TimeoutCancellationException
+                    cause is IOException ||
+                            cause is TimeoutCancellationException ||
+                            cause is HttpRequestTimeoutException
                 }
                 exponentialDelay()
             }
@@ -88,7 +96,15 @@ object HttpClientFactory {
                 url.takeFrom(config.baseUrl)
                 header(HttpHeaders.Accept, "application/json")
                 header("Accept-Language", Locale.getDefault().language)
-                currentToken?.let { token ->
+                config.userAgent?.let { header(HttpHeaders.UserAgent, it) }
+                config.defaultHeaders.forEach { (name, value) ->
+                    header(name, value)
+                }
+                config.userAgent?.let { header(HttpHeaders.UserAgent, it) }
+                config.defaultHeaders.forEach { (name, value) ->
+                    header(name, value)
+                }
+                tokenToUse?.let { token ->
                     header(HttpHeaders.Authorization, "Bearer $token")
                 }
                 additionalConfigurator?.invoke(this)
@@ -102,6 +118,19 @@ object HttpClientFactory {
 
                     if (config.cacheConfig.enabled) {
                         cache(Cache(context.cacheDir, config.cacheConfig.size))
+                    }
+                    if (
+                        config.sslConfig.pinningEnabled &&
+                        config.sslConfig.host.isNotBlank() &&
+                        config.sslConfig.certificates.isNotEmpty()
+                    ) {
+                        certificatePinner(
+                            CertificatePinner.Builder().apply {
+                                config.sslConfig.certificates.forEach { pattern ->
+                                    add(config.sslConfig.host, pattern)
+                                }
+                            }.build(),
+                        )
                     }
                 }
             }
