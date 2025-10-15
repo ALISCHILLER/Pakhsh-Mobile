@@ -9,7 +9,7 @@ data class ApiResponse<T>(
     val data: T? = null,
     val message: String = "",
     val hasError: Boolean = false,
-    val pagination: Pagination? = null
+    val pagination: Pagination? = null,
 )
 
 

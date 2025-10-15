@@ -1,4 +1,4 @@
-package com.zar.core.camera
+package com.zar.core.ui.camera
 
 import android.graphics.Bitmap
 import android.graphics.Matrix

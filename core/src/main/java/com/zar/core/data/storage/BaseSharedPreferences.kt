@@ -1,12 +1,15 @@
 package com.zar.core.data.storage
 
-
 import android.content.Context
 import android.content.SharedPreferences
-import androidx.security.crypto.EncryptedSharedPreferences
-import androidx.security.crypto.MasterKeys
+import android.util.Base64
 import com.google.gson.Gson
 import com.google.gson.reflect.TypeToken
+import com.google.crypto.tink.Aead
+import com.google.crypto.tink.KeysetHandle
+import com.google.crypto.tink.aead.AeadConfig
+import com.google.crypto.tink.aead.AeadKeyTemplates
+import com.google.crypto.tink.integration.android.AndroidKeysetManager
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -14,44 +17,43 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import timber.log.Timber
 
-
 /**
- * کلاس پایه برای مدیریت SharedPreferences.
- * این کلاس از SharedPreferences معمولی یا EncryptedSharedPreferences پشتیبانی می‌کند.
+ * SharedPreferences + (اختیاری) رمزنگاری با Google Tink (جایگزین EncryptedSharedPreferences Deprecated)
+ *
+ * - اگر isEncrypted=false → مانند SharedPreferences عادی کار می‌کند.
+ * - اگر isEncrypted=true → مقدارها را قبل از ذخیره رمزنگاری می‌کند (AEAD/AES256-GCM) و به صورت String(Base64) ذخیره می‌کند.
+ *
+ * نکته: از AAD مبتنی بر key استفاده می‌شود تا داده به کلید کوپل شود.
  */
 open class BaseSharedPreferences @JvmOverloads constructor(
-    context: Context,
+    private val context: Context,
     private val prefsName: String,
-    isEncrypted: Boolean = false,
-    private val gson: Gson = Gson()
+    private val isEncrypted: Boolean = false,
+    @PublishedApi internal val gson: Gson = Gson() // برای استفاده در inline
 ) {
 
+    /** آینه‌ی PublishedApi از حالت رمزنگاری برای استفاده‌ی امن در توابع inline public */
+    @PublishedApi
+    internal val encryptedMode: Boolean = isEncrypted
 
-    // استفاده از EncryptedSharedPreferences اگر isEncrypted برابر با true باشد
+    /** SharedPreferences پایه (رمزنگاری در سطح داده انجام می‌شود) */
+    @PublishedApi
     internal val sharedPreferences: SharedPreferences by lazy {
-        if (isEncrypted) {
-            val masterKeyAlias = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
-            EncryptedSharedPreferences.create(
-                prefsName,
-                masterKeyAlias,
-                context,
-                EncryptedSharedPreferences.PrefKeyEncryptionScheme.AES256_SIV,
-                EncryptedSharedPreferences.PrefValueEncryptionScheme.AES256_GCM,
-            )
-        } else {
-            context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
-        }
+        context.getSharedPreferences(prefsName, Context.MODE_PRIVATE)
     }
 
-    // تابع کمکی برای مدیریت خطاها
-    private inline fun <T> runCatchingOrDefault(default: T, block: () -> T): T {
-        return try {
+    /** موتور رمزنگاری Tink (فقط وقتی isEncrypted=true ساخته می‌شود) */
+    private val crypto by lazy { if (isEncrypted) TinkAeadEngine(context, prefsName) else null }
+
+    // ------------ ابزارهای کمکی ------------
+
+    private inline fun <T> runCatchingOrDefault(default: T, block: () -> T): T =
+        try {
             block()
-        } catch (throwable: Throwable) {
-            Timber.w(throwable, "SharedPreferences operation failed for %s", prefsName)
+        } catch (t: Throwable) {
+            Timber.w(t, "SharedPreferences operation failed for %s", prefsName)
             default
         }
-    }
 
     private inline fun SharedPreferences.safeEdit(
         commit: Boolean = false,
@@ -59,93 +61,110 @@ open class BaseSharedPreferences @JvmOverloads constructor(
     ): Boolean {
         return runCatching {
             val editor = edit()
-            block.invoke(editor)
-            if (commit) {
-                editor.commit()
-            } else {
+            block(editor)
+            if (commit) editor.commit() else {
                 editor.apply()
                 true
             }
-        }.onFailure { throwable ->
-            Timber.e(throwable, "Failed to persist value in %s", prefsName)
+        }.onFailure { t ->
+            Timber.e(t, "Failed to persist value in %s", prefsName)
         }.getOrDefault(false)
     }
+
+    // ------------ ذخیره/خواندن آبجکت‌ها ------------
 
     fun <T> saveObject(key: String, value: T, commit: Boolean = false): Boolean {
         val json = runCatching { gson.toJson(value) }
             .onFailure { Timber.e(it, "Failed to serialise object for key=%s", key) }
-            .getOrNull()
-            ?: return false
+            .getOrNull() ?: return false
 
-        return sharedPreferences.safeEdit(commit) { putString(key, json) }
+        val payload = if (isEncrypted) encryptString(json, key) ?: return false else json
+        return sharedPreferences.safeEdit(commit) { putString(key, payload) }
     }
-
 
     fun <T> getObject(key: String, clazz: Class<T>): T? {
-        val json = sharedPreferences.getString(key, null) ?: return null
+        val raw = sharedPreferences.getString(key, null) ?: return null
+        val json = if (isEncrypted) decryptString(raw, key) ?: return null else raw
+        return runCatching { gson.fromJson(json, clazz) }
+            .onFailure { Timber.e(it, "Failed to parse object for key=%s", key) }
+            .getOrNull()
+    }
+
+    // inline + reified → باید فقط به اعضای public/@PublishedApi ارجاع دهد
+    inline fun <reified T> getObject(key: String): T? {
+        val raw = sharedPreferences.getString(key, null) ?: return null
+        val json = if (encryptedMode) decryptString(raw, key) ?: return null else raw
         return runCatching {
-            gson.fromJson(json, clazz)
-        }.onFailure { throwable ->
-            Timber.e(throwable, "Failed to parse object for key=%s", key)
+            gson.fromJson<T>(json, object : TypeToken<T>() {}.type)
+        }.onFailure { t ->
+            Timber.e(t, "Failed to parse object for key=%s", key)
         }.getOrNull()
     }
 
-    inline fun <reified T> getObject(key: String): T? {
-        val json = sharedPreferences.getString(key, null) ?: return null
-        return runCatching {
-            gson.fromJson(json, object : TypeToken<T>() {}.type)
-        }.onFailure { throwable ->
-            Timber.e(throwable, "Failed to parse object for key=%s", key)
-        }.getOrNull()
-    }
+    // ------------ String ------------
 
     fun saveString(key: String, value: String, commit: Boolean = false): Boolean {
-        return sharedPreferences.safeEdit(commit) { putString(key, value) }
+        val payload = if (isEncrypted) encryptString(value, key) ?: return false else value
+        return sharedPreferences.safeEdit(commit) { putString(key, payload) }
     }
 
-
     fun getString(key: String, defaultValue: String = ""): String {
-        return runCatchingOrDefault(defaultValue) {
-            sharedPreferences.getString(key, defaultValue) ?: defaultValue
-        }
+        val saved = runCatchingOrDefault(null as String?) { sharedPreferences.getString(key, null) }
+        if (saved == null) return defaultValue
+        return if (isEncrypted) decryptString(saved, key) ?: defaultValue else saved
     }
 
     fun getStringOrNull(key: String): String? {
-        return runCatchingOrDefault(null) { sharedPreferences.getString(key, null) }
+        val saved = runCatchingOrDefault(null as String?) { sharedPreferences.getString(key, null) } ?: return null
+        return if (isEncrypted) decryptString(saved, key) else saved
     }
+
+    // ------------ Boolean ------------
 
     fun saveBoolean(key: String, value: Boolean, commit: Boolean = false): Boolean {
-        return sharedPreferences.safeEdit(commit) { putBoolean(key, value) }
+        return if (isEncrypted) {
+            val payload = encryptString(value.toString(), key) ?: return false
+            sharedPreferences.safeEdit(commit) { putString(key, payload) }
+        } else {
+            sharedPreferences.safeEdit(commit) { putBoolean(key, value) }
+        }
     }
 
-
     fun getBoolean(key: String, defaultValue: Boolean = false): Boolean {
-        return runCatchingOrDefault(defaultValue) { sharedPreferences.getBoolean(key, defaultValue) }
+        return if (isEncrypted) {
+            val raw = sharedPreferences.getString(key, null) ?: return defaultValue
+            decryptString(raw, key)?.toBooleanStrictOrNull() ?: defaultValue
+        } else {
+            runCatchingOrDefault(defaultValue) { sharedPreferences.getBoolean(key, defaultValue) }
+        }
     }
 
     fun getBooleanOrNull(key: String): Boolean? {
-        return if (sharedPreferences.contains(key)) {
-            runCatchingOrDefault(null) { sharedPreferences.getBoolean(key, false) }
+        return if (!sharedPreferences.contains(key)) null else getBoolean(key, false)
+    }
+
+    // ------------ Int ------------
+
+    fun saveInt(key: String, value: Int, commit: Boolean = false): Boolean {
+        return if (isEncrypted) {
+            val payload = encryptString(value.toString(), key) ?: return false
+            sharedPreferences.safeEdit(commit) { putString(key, payload) }
         } else {
-            null
+            sharedPreferences.safeEdit(commit) { putInt(key, value) }
         }
     }
 
-    fun saveInt(key: String, value: Int, commit: Boolean = false): Boolean {
-        return sharedPreferences.safeEdit(commit) { putInt(key, value) }
-    }
-
-
     fun getInt(key: String, defaultValue: Int = 0): Int {
-        return runCatchingOrDefault(defaultValue) { sharedPreferences.getInt(key, defaultValue) }
+        return if (isEncrypted) {
+            val raw = sharedPreferences.getString(key, null) ?: return defaultValue
+            decryptString(raw, key)?.toIntOrNull() ?: defaultValue
+        } else {
+            runCatchingOrDefault(defaultValue) { sharedPreferences.getInt(key, defaultValue) }
+        }
     }
 
     fun getIntOrNull(key: String): Int? {
-        return if (sharedPreferences.contains(key)) {
-            runCatchingOrDefault(null) { sharedPreferences.getInt(key, 0) }
-        } else {
-            null
-        }
+        return if (!sharedPreferences.contains(key)) null else getInt(key, 0)
     }
 
     fun incrementInt(key: String, delta: Int = 1, defaultValue: Int = 0, commit: Boolean = false): Int {
@@ -154,64 +173,71 @@ open class BaseSharedPreferences @JvmOverloads constructor(
         return updated
     }
 
+    // ------------ Long ------------
+
     fun saveLong(key: String, value: Long, commit: Boolean = false): Boolean {
-        return sharedPreferences.safeEdit(commit) { putLong(key, value) }
+        return if (isEncrypted) {
+            val payload = encryptString(value.toString(), key) ?: return false
+            sharedPreferences.safeEdit(commit) { putString(key, payload) }
+        } else {
+            sharedPreferences.safeEdit(commit) { putLong(key, value) }
+        }
     }
 
-
     fun getLong(key: String, defaultValue: Long = 0L): Long {
-        return runCatchingOrDefault(defaultValue) { sharedPreferences.getLong(key, defaultValue) }
+        return if (isEncrypted) {
+            val raw = sharedPreferences.getString(key, null) ?: return defaultValue
+            decryptString(raw, key)?.toLongOrNull() ?: defaultValue
+        } else {
+            runCatchingOrDefault(defaultValue) { sharedPreferences.getLong(key, defaultValue) }
+        }
     }
 
     fun getLongOrNull(key: String): Long? {
-        return if (sharedPreferences.contains(key)) {
-            runCatchingOrDefault(null) { sharedPreferences.getLong(key, 0L) }
+        return if (!sharedPreferences.contains(key)) null else getLong(key, 0L)
+    }
+
+    // ------------ Float ------------
+
+    fun saveFloat(key: String, value: Float, commit: Boolean = false): Boolean {
+        return if (isEncrypted) {
+            val payload = encryptString(value.toString(), key) ?: return false
+            sharedPreferences.safeEdit(commit) { putString(key, payload) }
         } else {
-            null
+            sharedPreferences.safeEdit(commit) { putFloat(key, value) }
         }
     }
 
-    fun saveFloat(key: String, value: Float, commit: Boolean = false): Boolean {
-        return sharedPreferences.safeEdit(commit) { putFloat(key, value) }
-    }
-
-
     fun getFloat(key: String, defaultValue: Float = 0f): Float {
-        return runCatchingOrDefault(defaultValue) { sharedPreferences.getFloat(key, defaultValue) }
+        return if (isEncrypted) {
+            val raw = sharedPreferences.getString(key, null) ?: return defaultValue
+            decryptString(raw, key)?.toFloatOrNull() ?: defaultValue
+        } else {
+            runCatchingOrDefault(defaultValue) { sharedPreferences.getFloat(key, defaultValue) }
+        }
     }
 
     fun getFloatOrNull(key: String): Float? {
-        return if (sharedPreferences.contains(key)) {
-            runCatchingOrDefault(null) { sharedPreferences.getFloat(key, 0f) }
-        } else {
-            null
-        }
+        return if (!sharedPreferences.contains(key)) null else getFloat(key, 0f)
     }
 
-    fun removeKey(key: String, commit: Boolean = false): Boolean {
-        return sharedPreferences.safeEdit(commit) { remove(key) }
-    }
+    // ------------ حذف/پاکسازی ------------
+
+    fun removeKey(key: String, commit: Boolean = false): Boolean =
+        sharedPreferences.safeEdit(commit) { remove(key) }
 
     fun removeKeys(vararg keys: String, commit: Boolean = false): Boolean {
         if (keys.isEmpty()) return false
-        return sharedPreferences.safeEdit(commit) {
-            keys.forEach { remove(it) }
-        }
+        return sharedPreferences.safeEdit(commit) { keys.forEach { remove(it) } }
     }
 
-    fun clearAll(commit: Boolean = false): Boolean {
-        return sharedPreferences.safeEdit(commit) { clear() }
-    }
+    fun clearAll(commit: Boolean = false): Boolean =
+        sharedPreferences.safeEdit(commit) { clear() }
 
+    // ------------ متفرقه ------------
 
-    fun contains(key: String): Boolean {
-        return runCatchingOrDefault(false) { sharedPreferences.contains(key) }
-    }
-
-    fun containsAny(vararg keys: String): Boolean {
-        if (keys.isEmpty()) return false
-        return keys.any { contains(it) }
-    }
+    fun contains(key: String): Boolean =
+        runCatchingOrDefault(false) { sharedPreferences.contains(key) }
 
     fun containsAny(vararg keys: String): Boolean {
         if (keys.isEmpty()) return false
@@ -219,23 +245,29 @@ open class BaseSharedPreferences @JvmOverloads constructor(
     }
 
     fun all(): Map<String, *> = sharedPreferences.all
+
+    // ------------ لیست‌ها ------------
+
     fun <T> getList(key: String, defaultValue: List<T> = emptyList()): List<T> {
-        val json = sharedPreferences.getString(key, null) ?: return defaultValue
+        val raw = sharedPreferences.getString(key, null) ?: return defaultValue
+        val json = if (isEncrypted) decryptString(raw, key) ?: return defaultValue else raw
         return runCatching {
             val listType = object : TypeToken<List<T>>() {}.type
             gson.fromJson<List<T>>(json, listType)
-        }.onFailure { throwable ->
-            Timber.e(throwable, "Failed to parse list for key=%s", key)
+        }.onFailure { t ->
+            Timber.e(t, "Failed to parse list for key=%s", key)
         }.getOrElse { defaultValue }
     }
 
     fun <T> saveList(key: String, value: List<T>, commit: Boolean = false): Boolean {
         val json = runCatching { gson.toJson(value) }
             .onFailure { Timber.e(it, "Failed to serialise list for key=%s", key) }
-            .getOrNull()
-            ?: return false
-        return sharedPreferences.safeEdit(commit) { putString(key, json) }
+            .getOrNull() ?: return false
+        val payload = if (isEncrypted) encryptString(json, key) ?: return false else json
+        return sharedPreferences.safeEdit(commit) { putString(key, payload) }
     }
+
+    // ------------ Observers (Flow) ------------
 
     fun <T> observeObject(
         key: String,
@@ -278,9 +310,8 @@ open class BaseSharedPreferences @JvmOverloads constructor(
         emitInitial: Boolean = true,
     ): Flow<Float> = observe(key, emitInitial) { getFloat(key, defaultValue) }
 
-    fun edit(commit: Boolean = false, block: SharedPreferences.Editor.() -> Unit): Boolean {
-        return sharedPreferences.safeEdit(commit, block)
-    }
+    fun edit(commit: Boolean = false, block: SharedPreferences.Editor.() -> Unit): Boolean =
+        sharedPreferences.safeEdit(commit, block)
 
     fun migrateFrom(
         other: BaseSharedPreferences,
@@ -288,29 +319,41 @@ open class BaseSharedPreferences @JvmOverloads constructor(
         clearSource: Boolean = false,
         commit: Boolean = true,
     ): Boolean {
-        val entries = if (keys.isNullOrEmpty()) {
-            other.all()
-        } else {
-            other.all().filterKeys { it in keys }
-        }
+        val entries = if (keys.isNullOrEmpty()) other.all() else other.all().filterKeys { it in keys }
         if (entries.isEmpty()) return false
 
         val success = sharedPreferences.safeEdit(commit) {
             entries.forEach { (key, value) ->
                 when (value) {
-                    is String -> putString(key, value)
-                    is Boolean -> putBoolean(key, value)
-                    is Int -> putInt(key, value)
-                    is Long -> putLong(key, value)
-                    is Float -> putFloat(key, value)
+                    is String -> putString(key, if (isEncrypted) encryptString(value, key) ?: value else value)
+                    is Boolean -> {
+                        if (isEncrypted) putString(key, encryptString(value.toString(), key) ?: value.toString())
+                        else putBoolean(key, value)
+                    }
+                    is Int -> {
+                        if (isEncrypted) putString(key, encryptString(value.toString(), key) ?: value.toString())
+                        else putInt(key, value)
+                    }
+                    is Long -> {
+                        if (isEncrypted) putString(key, encryptString(value.toString(), key) ?: value.toString())
+                        else putLong(key, value)
+                    }
+                    is Float -> {
+                        if (isEncrypted) putString(key, encryptString(value.toString(), key) ?: value.toString())
+                        else putFloat(key, value)
+                    }
                     is Set<*> -> {
                         @Suppress("UNCHECKED_CAST")
-                        putStringSet(key, value as? Set<String>)
+                        val set = value as? Set<String>
+                        val json = gson.toJson(set)
+                        putString(key, if (isEncrypted) encryptString(json, key) ?: json else json)
                     }
                     null -> remove(key)
                     else -> {
-                        runCatching { putString(key, gson.toJson(value)) }
-                            .onFailure { Timber.e(it, "Failed to migrate complex value for %s", key) }
+                        runCatching {
+                            val json = gson.toJson(value)
+                            putString(key, if (isEncrypted) encryptString(json, key) ?: json else json)
+                        }.onFailure { Timber.e(it, "Failed to migrate complex value for %s", key) }
                     }
                 }
             }
@@ -322,7 +365,9 @@ open class BaseSharedPreferences @JvmOverloads constructor(
         return success
     }
 
-    private fun <T> observe(
+    /** برای inline بودن observeObject لازم است PublishedApi باشد */
+    @PublishedApi
+    internal fun <T> observe(
         key: String,
         emitInitial: Boolean,
         supplier: () -> T,
@@ -344,16 +389,60 @@ open class BaseSharedPreferences @JvmOverloads constructor(
             awaitClose { sharedPreferences.unregisterOnSharedPreferenceChangeListener(listener) }
         }.conflate().distinctUntilChanged()
     }
+
+    // ------------ Encryption helpers ------------
+
+    @PublishedApi
+    internal fun encryptString(value: String, keyAsAad: String): String? {
+        val aead = crypto?.aead ?: return null
+        return runCatching {
+            val ciphertext = aead.encrypt(value.toByteArray(Charsets.UTF_8), keyAsAad.toByteArray())
+            Base64.encodeToString(ciphertext, Base64.NO_WRAP)
+        }.onFailure { Timber.e(it, "Encryption failed for key=%s", keyAsAad) }
+            .getOrNull()
+    }
+
+    @PublishedApi
+    internal fun decryptString(stored: String, keyAsAad: String): String? {
+        val aead = crypto?.aead ?: return null
+        return runCatching {
+            val bytes = Base64.decode(stored, Base64.NO_WRAP)
+            val plaintext = aead.decrypt(bytes, keyAsAad.toByteArray())
+            String(plaintext, Charsets.UTF_8)
+        }.onFailure { Timber.e(it, "Decryption failed for key=%s", keyAsAad) }
+            .getOrNull()
+    }
 }
 
-/**
- * کلیدهای مورد استفاده در SharedPreferences
- * برای جلوگیری از اشتباهات تایپی در کلیدها، می‌توان از sealed class استفاده کرد
- */
+/** موتور رمزنگاری مبتنی بر Google Tink + Android Keystore */
+private class TinkAeadEngine(
+    context: Context,
+    prefsName: String,
+) {
+    val aead: Aead
+
+    init {
+        AeadConfig.register()
+
+        val keysetHandle: KeysetHandle = AndroidKeysetManager.Builder()
+            .withSharedPref(
+                context,
+                "${prefsName}_tink_keyset",
+                "${prefsName}_tink_prefs"
+            )
+            .withKeyTemplate(AeadKeyTemplates.AES256_GCM)
+            .withMasterKeyUri("android-keystore://${prefsName}_tink_master_key")
+            .build()
+            .keysetHandle
+
+        aead = keysetHandle.getPrimitive(Aead::class.java)
+    }
+}
+
+/** کلیدهای نمونه */
 sealed class PrefKey(val key: String) {
     object UserName : PrefKey("user_name")
     object IsLoggedIn : PrefKey("is_logged_in")
     object UserAge : PrefKey("user_age")
     object Token : PrefKey("token")
 }
-

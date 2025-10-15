@@ -1,41 +1,13 @@
 package com.zar.core.config
 
-
-
 /**
  * Interface برای تنظیمات اپلیکیشن.
+ * پیشنهاد: اگر بعداً خواستی baseUrl هم تزریق کنی، اینجا اضافه‌اش کن.
  */
 interface AppConfig {
     val appFlavor: String
     val sharedPreferencesName: String
     val databaseName: String
     val signalRUrl: String
+    // val baseUrl: String // (اختیاری) اگر نیاز شد برای Ktor
 }
-
-
-//نحوه استفاده
-
-//import com.example.core.config.AppConfig
-//
-//object App1Config : AppConfig {
-//    override val sharedPreferencesName: String = "app1_prefs"
-//    override val databaseName: String = "app1_database"
-//}
-
-
-//class MainApplication : Application() {
-//
-//    override fun onCreate() {
-//        super.onCreate()
-//
-//        startKoin {
-//            androidContext(this@MainApplication)
-//            modules(
-//                storageModule, // ثبت ماژول ذخیره‌سازی
-//                module {
-//                    single<AppConfig> { App1Config }
-//                }
-//            )
-//        }
-//    }
-//}

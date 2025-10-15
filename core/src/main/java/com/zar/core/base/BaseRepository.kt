@@ -1,7 +1,5 @@
 package com.zar.core.base
 
-
-
 import com.zar.core.data.network.client.NetworkClient
 import com.zar.core.data.network.result.NetworkResult
 import kotlinx.coroutines.Dispatchers
@@ -11,6 +9,8 @@ import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import timber.log.Timber
+
+
 open class BaseRepository(
     protected val networkClient: NetworkClient,
 ) {
@@ -59,7 +59,7 @@ open class BaseRepository(
         asFlowInternal { client().post<Req, Res>(url, body) }
 
     inline fun <reified Req, reified Res> putAsFlow(url: String, body: Req): Flow<NetworkResult<Res>> =
-        asFlowInternal { handler().put<Req, Res>(url, body) }
+        asFlowInternal { client().put<Req, Res>(url, body) }
 
     inline fun <reified Req, reified Res> patchAsFlow(url: String, body: Req): Flow<NetworkResult<Res>> =
         asFlowInternal { client().patch<Req, Res>(url, body) }

@@ -3,6 +3,7 @@ package com.zar.core.base
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.zar.core.data.network.error.AppError
+import com.zar.core.data.network.error.UnknownError
 import com.zar.core.data.network.result.NetworkMetadata
 import com.zar.core.data.network.result.NetworkResult
 import kotlinx.coroutines.CoroutineScope
@@ -15,7 +16,6 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -27,8 +27,10 @@ abstract class BaseViewModel : ViewModel() {
 
     /**
      * StateFlow برای مدیریت وضعیت عمومی (مانند Loading, Error, Success).
+     *
+     * ✅ FIX: Changed from private to protected to allow access from inline functions.
      */
-    private val _uiState = MutableStateFlow<UIState<*>>(UIState.Idle)
+    protected val _uiState = MutableStateFlow<UIState<*>>(UIState.Idle)
     val uiState: StateFlow<UIState<*>> = _uiState.asStateFlow()
 
     private val _events = MutableSharedFlow<UiEvent>(
@@ -79,6 +81,10 @@ abstract class BaseViewModel : ViewModel() {
         _uiState.update(transform)
     }
 
+    /**
+     * ✅ FIX: Added the 'inline' keyword to use 'reified' and 'noinline'.
+     * This function now correctly updates the success state.
+     */
     protected inline fun <reified T> updateSuccess(noinline transform: (T) -> T) {
         _uiState.update { current ->
             if (current is UIState.Success<*>) {
@@ -134,6 +140,8 @@ abstract class BaseViewModel : ViewModel() {
         onError: (AppError, Throwable?, NetworkMetadata) -> Unit = { error, cause, _ ->
             setError(error, cause)
         },
+        // ✅ FIX: The missing 'onLoading' parameter has been added.
+        onLoading: () -> Unit = { setLoading() },
         onIdle: () -> Unit = { setIdle() },
         onCompletion: (() -> Unit)? = null,
     ): Job {

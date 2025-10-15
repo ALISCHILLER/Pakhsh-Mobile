@@ -5,32 +5,50 @@ import android.content.Context
 import com.zar.core.data.network.common.AndroidStringProvider
 import com.zar.core.data.network.common.StringProvider
 import com.zar.core.data.network.error.AppError
+import com.zar.core.data.network.error.UnknownError
 import com.zar.core.data.network.error.toAppError
+import com.zar.core.data.network.model.Pagination
 import kotlinx.coroutines.CancellationException
 import timber.log.Timber
-import com.zar.core.data.network.error.UnknownError
 
-sealed class NetworkResult<out T> {
+sealed class NetworkResult<out T>(open val metadata: NetworkMetadata = NetworkMetadata()) {
+
     object Loading : NetworkResult<Nothing>()
     object Idle : NetworkResult<Nothing>()
-    data class Success<out T>(val data: T) : NetworkResult<T>()
+
+    data class Success<out T>(
+        val data: T,
+        override val metadata: NetworkMetadata = NetworkMetadata(),
+    ) : NetworkResult<T>(metadata)
+
+
     data class Error(
         val error: AppError,
-        val attemptedRetries: Int = 0,
-        val maxRetries: Int = 3
-    ) : NetworkResult<Nothing>() {
+        val cause: Throwable? = null,
+        override val metadata: NetworkMetadata = NetworkMetadata(),
+    ) : NetworkResult<Nothing>(metadata) {
         companion object {
             fun fromException(
                 exception: Throwable,
                 context: Context,
                 attemptedRetries: Int = 0,
-                maxRetries: Int = 3
+                maxRetries: Int = 3,
             ): NetworkResult<Nothing> {
                 if (exception is CancellationException) throw exception
                 val strings: StringProvider = AndroidStringProvider(context)
                 val appError = exception.toAppError(strings)
-                if (appError is UnknownError) Timber.e(exception, "Unhandled exception in network call")
-                return Error(appError, attemptedRetries, maxRetries)
+                if (appError is UnknownError) {
+                    Timber.e(exception, "Unhandled exception in network call")
+                }
+                return Error(
+                    error = appError,
+                    cause = exception,
+                    metadata = NetworkMetadata(
+                        attemptedRetries = attemptedRetries,
+                        maxRetries = maxRetries,
+                        message = appError.message,
+                    ),
+                )
             }
         }
     }
@@ -38,7 +56,7 @@ sealed class NetworkResult<out T> {
 
 
 inline fun <T, R> NetworkResult<T>.map(transform: (T) -> R): NetworkResult<R> = when (this) {
-    is NetworkResult.Success -> NetworkResult.Success(transform(data))
+    is NetworkResult.Success -> NetworkResult.Success(transform(data), metadata)
     is NetworkResult.Error -> this
     is NetworkResult.Loading -> this
     is NetworkResult.Idle -> this

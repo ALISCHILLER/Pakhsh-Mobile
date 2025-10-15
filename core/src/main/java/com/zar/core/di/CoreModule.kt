@@ -12,24 +12,32 @@ import org.koin.dsl.module
 
 val coreModule = module {
 
+    // اگر AppConfig را در ماژول اپ تزریق نکرده‌ای، اینجا بساز/تزریق کن:
+    // single<AppConfig> { YourAppConfigImpl(androidContext()) }
 
+    // پیکربندی شبکه (پیش‌فرض)
     single { NetworkConfig.DEFAULT }
 
+    // StringProvider برای پیام‌های خطا و … (وابسته به context)
     single<StringProvider> { AndroidStringProvider(androidContext()) }
+
+    // نگاشت خطاها (به StringProvider نیاز دارد)
     single { ErrorMapper(get()) }
 
+    // مانیتور وضعیت شبکه — از applicationContext استفاده کن تا لیک نشه
+    single { NetworkStatusMonitor(androidContext().applicationContext) }
 
-    single { NetworkStatusMonitor(androidContext()) }
+    // HttpClient(Ktor) — از NetworkConfig می‌گیرد
+    single { HttpClientFactory.create(androidContext().applicationContext, get<NetworkConfig>()) }
 
-    single { HttpClientFactory.create(androidContext(), get()) }
-
-
+    // کلاینت شبکه‌ی سطح بالا
     single {
         NetworkClient(
-            httpClient = get(),
-            statusMonitor = get(),
-            stringProvider = get(),
-            errorMapper = get()
+            httpClient = get(),          // HttpClient
+            statusMonitor = get(),       // NetworkStatusMonitor
+            stringProvider = get(),      // StringProvider
+            errorMapper = get(),         // ErrorMapper
+            // dispatcher اختیاری است (دیفالت IO داخل کلاس)
         )
     }
 }

@@ -100,7 +100,7 @@ dependencies {
 
     //security
     implementation(dependency.security.crypto)
-    // implementation("androidx.security:security-state:1.0.0")
+    implementation("com.google.crypto.tink:tink-android:1.13.0")
 
     // google gson
     implementation(dependency.google.gson)
