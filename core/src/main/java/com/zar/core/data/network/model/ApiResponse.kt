@@ -2,9 +2,6 @@ package com.zar.core.data.network.model
 
 import kotlinx.serialization.Serializable
 
-/**
- * مدل استاندارد پاسخ API که شامل اطلاعات وضعیت، داده‌ها و خطاهای منطقی است.
- */
 @Serializable
 data class ApiResponse<T>(
     val code: Int = 0,

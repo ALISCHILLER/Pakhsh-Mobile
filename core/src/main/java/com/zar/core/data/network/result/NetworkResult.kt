@@ -8,7 +8,7 @@ import com.zar.core.data.network.error.AppError
 import com.zar.core.data.network.error.toAppError
 import kotlinx.coroutines.CancellationException
 import timber.log.Timber
-
+import com.zar.core.data.network.error.UnknownError
 
 sealed class NetworkResult<out T> {
     object Loading : NetworkResult<Nothing>()
@@ -46,11 +46,42 @@ inline fun <T, R> NetworkResult<T>.map(transform: (T) -> R): NetworkResult<R> = 
 
 
 inline fun <T> NetworkResult<T>.onSuccess(action: (T) -> Unit): NetworkResult<T> {
-    if (this is NetworkResult.Success) action(data); return this
+    if (this is NetworkResult.Success) action(data)
+    return this
 }
 inline fun <T> NetworkResult<T>.onError(action: (AppError) -> Unit): NetworkResult<T> {
-    if (this is NetworkResult.Error) action(error); return this
+    if (this is NetworkResult.Error) action(error)
+    return this
 }
-fun <T> NetworkResult<T>.onLoading(action: () -> Unit): NetworkResult<T> { if (this is NetworkResult.Loading) action(); return this }
-fun <T> NetworkResult<T>.onIdle(action: () -> Unit): NetworkResult<T> { if (this is NetworkResult.Idle) action(); return this }
+inline fun <T> NetworkResult<T>.onLoading(action: () -> Unit): NetworkResult<T> {
+    if (this is NetworkResult.Loading) action()
+    return this
+}
 
+inline fun <T> NetworkResult<T>.onIdle(action: () -> Unit): NetworkResult<T> {
+    if (this is NetworkResult.Idle) action()
+    return this
+}
+
+inline fun <T> NetworkResult<T>.getOrNull(): T? = when (this) {
+    is NetworkResult.Success -> data
+    else -> null
+}
+
+inline fun <T> NetworkResult<T>.getOrElse(onError: (AppError) -> T): T = when (this) {
+    is NetworkResult.Success -> data
+    is NetworkResult.Error -> onError(error)
+    else -> throw IllegalStateException("Value is not available from $this")
+}
+
+inline fun <T> NetworkResult<T>.recover(onError: (AppError) -> NetworkResult<T>): NetworkResult<T> = when (this) {
+    is NetworkResult.Error -> onError(error)
+    else -> this
+}
+
+fun <T> NetworkResult<T>.requireValue(): T = when (this) {
+    is NetworkResult.Success -> data
+    is NetworkResult.Error -> throw IllegalStateException("Network error: $error")
+    is NetworkResult.Loading, is NetworkResult.Idle ->
+        throw IllegalStateException("Value is not available while state is $this")
+}

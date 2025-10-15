@@ -55,33 +55,109 @@ class ErrorMapper(private val strings: StringProvider) {
             )
         }
     }
+    fun noConnection(connectionType: NetworkStatusMonitor.ConnectionType?): ConnectionError = ConnectionError(
+        errorCode = "network_unavailable",
+        message = strings.get(R.string.error_no_connection),
+        connectionType = connectionType?.name
+    )
 
+    fun emptyBody(): ParsingError = ParsingError(
+        errorCode = "empty_response_body",
+        message = strings.get(R.string.error_parsing)
+    )
 
-    is HttpRequestTimeoutException, is SocketTimeoutException ->
-        TimeoutError("request_timeout", strings.get(R.string.error_timeout))
+    fun fromStatusCode(statusCode: Int, fallbackMessage: String? = null): AppError {
+        val msg = fallbackMessage?.takeIf { it.isNotBlank() }
+        return when (statusCode) {
+            HttpStatusCode.BadRequest.value -> ApiError(
+                errorCode = "bad_request",
+                message = strings.get(R.string.error_bad_request),
+                statusCode = statusCode
+            )
 
+            HttpStatusCode.Unauthorized.value -> ApiError(
+                errorCode = "unauthorized",
+                message = strings.get(R.string.error_unauthorized),
+                statusCode = statusCode
+            )
 
-    is UnknownHostException, is ConnectException ->
-        ConnectionError("dns_or_connect_error", strings.get(R.string.error_no_connection))
+            HttpStatusCode.Forbidden.value -> ApiError(
+                errorCode = "forbidden",
+                message = strings.get(R.string.error_forbidden),
+                statusCode = statusCode
+            )
 
+            HttpStatusCode.NotFound.value -> ApiError(
+                errorCode = "not_found",
+                message = strings.get(R.string.error_not_found),
+                statusCode = statusCode
+            )
 
-    is RedirectResponseException ->
-        ApiError(response.status.value.toString(), response.status.description, response.status.value)
+            HttpStatusCode.Conflict.value -> ApiError(
+                errorCode = "conflict",
+                message = strings.get(R.string.error_conflict),
+                statusCode = statusCode
+            )
 
+            HttpStatusCode.PayloadTooLarge.value -> ApiError(
+                errorCode = "payload_too_large",
+                message = strings.get(R.string.error_large_download),
+                statusCode = statusCode
+            )
 
-    is ClientRequestException ->
-        ApiError(response.status.value.toString(), response.status.description, response.status.value)
+            HttpStatusCode.UnprocessableEntity.value -> ApiError(
+                errorCode = "unprocessable_entity",
+                message = strings.get(R.string.error_unprocessable),
+                statusCode = statusCode
+            )
 
+            in 300..399 -> ApiError(
+                errorCode = "redirect",
+                message = strings.get(R.string.error_redirect, statusCode),
+                statusCode = statusCode
+            )
 
-    is ServerResponseException ->
-        ApiError(response.status.value.toString(), response.status.description, response.status.value)
+            in 400..499 -> ApiError(
+                errorCode = "client_error",
+                message = strings.get(R.string.error_client_generic, statusCode),
+                statusCode = statusCode
+            )
 
+            in 500..599 -> ApiError(
+                errorCode = "server_error",
+                message = strings.get(R.string.error_server_code, statusCode),
+                statusCode = statusCode
+            )
 
-    is SSLException -> ConnectionError("ssl_error", strings.get(R.string.error_unknown))
+            else -> ApiError(
+                errorCode = statusCode.toString(),
+                message = msg ?: strings.get(R.string.error_server_generic),
+                statusCode = statusCode
+            )
+        }
+    }
 
-
-    is SerializationException -> ParsingError("serialization_error", strings.get(R.string.error_server_generic))
-
-
-    else -> UnknownError(message = strings.get(R.string.error_unknown))
+    private fun mapClientError(exception: ClientRequestException): AppError {
+        val status = exception.response.status
+        val specific = when (status) {
+            HttpStatusCode.BadRequest -> strings.get(R.string.error_bad_request)
+            HttpStatusCode.Unauthorized -> strings.get(R.string.error_unauthorized)
+            HttpStatusCode.Forbidden -> strings.get(R.string.error_forbidden)
+            HttpStatusCode.NotFound -> strings.get(R.string.error_not_found)
+            HttpStatusCode.Conflict -> strings.get(R.string.error_conflict)
+            HttpStatusCode.PayloadTooLarge -> strings.get(R.string.error_large_download)
+            HttpStatusCode.UnprocessableEntity -> strings.get(R.string.error_unprocessable)
+            else -> null
+        }
+        val message = specific ?: strings.get(R.string.error_client_generic, status.value)
+        return ApiError(
+            errorCode = status.value.toString(),
+            message = message,
+            statusCode = status.value
+        )
+    }
 }
+
+/** برای سازگاری با NetworkResult.Error.fromException */
+fun Throwable.toAppError(strings: StringProvider): AppError =
+    ErrorMapper(strings).fromThrowable(this)
