@@ -2,8 +2,8 @@ plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
-    id("kotlinx-serialization")
-    id("com.google.devtools.ksp")
+    alias(dependency.plugins.kotlin.serialization)
+    alias(dependency.plugins.ksp)
 }
 
 android {
@@ -12,7 +12,6 @@ android {
 
     defaultConfig {
         minSdk = 27
-
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         consumerProguardFiles("consumer-rules.pro")
     }
@@ -25,8 +24,8 @@ android {
                 "proguard-rules.pro"
             )
         }
-
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_11
         targetCompatibility = JavaVersion.VERSION_11
@@ -36,19 +35,17 @@ android {
     }
     buildFeatures {
         compose = true
-        buildConfig = true // فعال کردن BuildConfig
+        buildConfig = true
     }
 }
 
 dependencies {
-
+    // ---- libs (پایه اندروید/کامپوز/تست)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
-    testImplementation(libs.junit)
-    androidTestImplementation(libs.androidx.junit)
-    androidTestImplementation(libs.androidx.espresso.core)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.activity.compose)
+
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.ui)
     implementation(libs.androidx.ui.graphics)
@@ -56,52 +53,58 @@ dependencies {
     implementation(libs.androidx.material3)
     androidTestImplementation(platform(libs.androidx.compose.bom))
 
-    //di koin
+    testImplementation(libs.junit)
+    androidTestImplementation(libs.androidx.junit)
+    androidTestImplementation(libs.androidx.espresso.core)
+
+    // ---- dependency (دامین/شبکه/DI/DB/…)
+    // Koin
     implementation(dependency.koin.androidx.compose)
     implementation(dependency.koin.test)
     testImplementation(dependency.koin.android.test)
 
-    //  exoplayer
+    // Media3
     implementation(dependency.media3.exoplayer)
     implementation(dependency.media3.ui)
     implementation(dependency.media3.common)
 
-    //network ktor
+    // Ktor (BOM + ماژول‌ها)
     implementation(platform(dependency.ktor.bom))
+    implementation(dependency.ktor.core)
     implementation(dependency.ktor.android)
-    implementation(dependency.ktor.serialization)
+    implementation(dependency.ktor.okhttp)
     implementation(dependency.ktor.logging)
     implementation(dependency.ktor.negotiation)
     implementation(dependency.ktor.json)
-    implementation(dependency.ktor.okhttp)
     implementation(dependency.ktor.auth)
-    implementation(dependency.ktor.core)
     implementation(dependency.ktor.resources)
-    //coroutines
+
+
+
+    // Coroutines / Timber
     implementation(dependency.coroutines.android)
-    // log  timber
     implementation(dependency.timber.log)
 
-    // image loader coil
+    // Coil v3
     implementation(dependency.coil.image)
 
-    //DB Room
+    // Room + KSP
     implementation(dependency.room.runtime)
-    ksp(dependency.room.compiler)
     implementation(dependency.room.ktx)
+    ksp(dependency.room.compiler)
 
     // CameraX
     implementation(dependency.camera.core)
     implementation(dependency.camera.lifecycle)
     implementation(dependency.camera.view)
 
-    // Permissions
+    // Accompanist Permissions
     implementation(dependency.accompanist.permissions)
 
-    //security
+    // Security: AndroidX + Tink
     implementation(dependency.security.crypto)
-    implementation("com.google.crypto.tink:tink-android:1.13.0")
+    implementation(dependency.tink.android)
 
-    // google gson
+    // Gson
     implementation(dependency.google.gson)
 }

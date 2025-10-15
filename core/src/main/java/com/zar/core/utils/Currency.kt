@@ -5,184 +5,140 @@ import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
 import java.text.ParseException
+import java.util.Locale
 
 /**
- * کلاس Currency برای مدیریت مقادیر پولی (ارقام مالی) طراحی شده است.
- * این کلاس از BigDecimal استفاده می‌کند تا دقت بالایی در محاسبات مالی داشته باشد.
+ * کلاس Currency برای مقادیر پولی با دقت بالا (BigDecimal).
+ * این کلاس immutable است.
  */
-class Currency(private var value: BigDecimal) {
+class Currency private constructor(private val value: BigDecimal) : Comparable<Currency> {
+
+    /** جمع دو مقدار پولی. */
+    fun add(other: Currency): Currency = Currency(value.add(other.value))
+
+    /** جمع با مقدار عددی. */
+    fun add(number: Number): Currency = add(of(number))
+
+    /** تفریق. */
+    fun subtract(other: Currency): Currency = Currency(value.subtract(other.value))
+
+    /** ضرب. (در محاسبات مالی، ضرب/تقسیم را با دقت مناسب استفاده کنید) */
+    fun multiply(other: Currency): Currency = Currency(value.multiply(other.value))
+
+    /** تقسیم. */
+    fun divide(
+        other: Currency,
+        scale: Int = 2,
+        roundingMode: RoundingMode = RoundingMode.HALF_UP
+    ): Currency = Currency(value.divide(other.value, scale, roundingMode))
+
+    /** عملگرها برای نوشتن تمیزتر */
+    operator fun plus(other: Currency) = add(other)
+    operator fun minus(other: Currency) = subtract(other)
+    operator fun times(other: Currency) = multiply(other)
+    operator fun div(other: Currency) = divide(other)
+
+    /** مقایسه */
+    override fun compareTo(other: Currency): Int = value.compareTo(other.value)
+
+    /** برابری منطقی روی مقدار stripTrailingZeros (برای 1.0 == 1) */
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other !is Currency) return false
+        return this.value.stripTrailingZeros() == other.value.stripTrailingZeros()
+    }
+    override fun hashCode(): Int = value.stripTrailingZeros().hashCode()
+
+    /** تبدیل‌ها */
+    fun toBigDecimal(): BigDecimal = value
+    fun toDouble(): Double = value.toDouble()
+    fun toInt(rounding: RoundingMode = RoundingMode.DOWN): Int = value.setScale(0, rounding).toIntExactOrTruncated()
 
     /**
-     * سازنده اصلی کلاس که مقدار اولیه را دریافت می‌کند.
-     * @param value مقدار اولیه به صورت BigDecimal.
+     * قالب‌بندی مقدار پولی به صورت رشته با جداکننده هزار و اعشار ثابت.
+     * مثال: 12_345.00
      */
-    constructor(value: String) : this(parse(value))
-
-    /**
-     * سازنده دوم کلاس که مقدار اولیه را به صورت عددی دریافت می‌کند.
-     * @param value مقدار اولیه به صورت Number (مانند Int, Double).
-     */
-    constructor(value: Number) : this(BigDecimal.valueOf(value.toDouble()).setScale(2, RoundingMode.HALF_UP))
-
-    /**
-     * جمع دو مقدار پولی.
-     * @param currency مقدار دوم برای جمع.
-     * @return نتیجه جمع به صورت یک شیء Currency جدید.
-     */
-    fun add(currency: Currency): Currency {
-        return Currency(value.add(currency.value))
+    fun toFormattedString(
+        decimalPlaces: Int = 2,
+        useGrouping: Boolean = true,
+        locale: Locale = Locale.US
+    ): String {
+        val symbols = DecimalFormatSymbols.getInstance(locale).apply {
+            // برای اطمینان از نقطه/کاما استاندارد در US
+            if (locale == Locale.US) {
+                groupingSeparator = ','
+                decimalSeparator = '.'
+            }
+        }
+        val df = DecimalFormat().apply {
+            isGroupingUsed = useGrouping
+            maximumFractionDigits = decimalPlaces
+            minimumFractionDigits = decimalPlaces // ← صفرهای اعشار حفظ می‌شوند
+            roundingMode = RoundingMode.HALF_UP
+            decimalFormatSymbols = symbols
+        }
+        return df.format(value)
     }
 
-    /**
-     * جمع یک مقدار پولی با یک عدد.
-     * @param number مقدار عددی برای جمع.
-     * @return نتیجه جمع به صورت یک شیء Currency جدید.
-     */
-    fun add(number: Number): Currency {
-        val currency = Currency(number)
-        return Currency(value.add(currency.value))
-    }
+    override fun toString(): String = value.toPlainString()
 
-    /**
-     * تفریق دو مقدار پولی.
-     * @param currency مقدار دوم برای تفریق.
-     * @return نتیجه تفریق به صورت یک شیء Currency جدید.
-     */
-    fun subtract(currency: Currency): Currency {
-        return Currency(value.subtract(currency.value))
-    }
-
-    /**
-     * ضرب دو مقدار پولی.
-     * @param currency مقدار دوم برای ضرب.
-     * @return نتیجه ضرب به صورت یک شیء Currency جدید.
-     */
-    fun multiply(currency: Currency): Currency {
-        return Currency(value.multiply(currency.value))
-    }
-
-    /**
-     * تقسیم دو مقدار پولی.
-     * @param currency مقدار دوم برای تقسیم.
-     * @param scale تعداد اعشار نتیجه تقسیم (پیش‌فرض: 2).
-     * @param roundingMode نحوه گرد کردن نتیجه تقسیم (پیش‌فرض: HALF_UP).
-     * @return نتیجه تقسیم به صورت یک شیء Currency جدید.
-     */
-    fun divide(currency: Currency, scale: Int = 2, roundingMode: RoundingMode = RoundingMode.HALF_UP): Currency {
-        return Currency(value.divide(currency.value, scale, roundingMode))
-    }
-
-    /**
-     * قالب‌بندی مقدار پولی به صورت رشته با جداکننده هزارها و تعداد اعشار قابل تنظیم.
-     * @param decimalPlaces تعداد اعشار مورد نظر (پیش‌فرض: 2).
-     * @return مقدار قالب‌بندی‌شده به صورت رشته.
-     */
-    fun toFormattedString(decimalPlaces: Int = 2): String {
-        val symbols = DecimalFormatSymbols.getInstance()
-        symbols.groupingSeparator = ',' // جداکننده هزارها
-        val pattern = "###,###." + "#".repeat(decimalPlaces) // الگوی قالب‌بندی
-        val formatter = DecimalFormat(pattern, symbols)
-        return formatter.format(value.setScale(decimalPlaces, RoundingMode.HALF_UP))
-    }
-
-    /**
-     * مقایسه دو مقدار پولی.
-     * @param other مقدار دوم برای مقایسه.
-     * @return نتیجه مقایسه (-1: کوچکتر، 0: مساوی، 1: بزرگتر).
-     */
-    fun compareTo(other: Currency): Int {
-        return value.compareTo(other.value)
-    }
-
-    /**
-     * بررسی مساوی بودن دو مقدار پولی.
-     * @param other مقدار دوم برای مقایسه.
-     * @return true اگر مقادیر مساوی باشند، در غیر این صورت false.
-     */
-    fun isEqualTo(other: Currency): Boolean {
-        return value.compareTo(other.value) == 0
-    }
-
-    /**
-     * بررسی بزرگ‌تر بودن مقدار فعلی نسبت به مقدار دیگر.
-     * @param other مقدار دوم برای مقایسه.
-     * @return true اگر مقدار فعلی بزرگ‌تر باشد، در غیر این صورت false.
-     */
-    fun isGreaterThan(other: Currency): Boolean {
-        return value.compareTo(other.value) > 0
-    }
-
-    /**
-     * بررسی کوچک‌تر بودن مقدار فعلی نسبت به مقدار دیگر.
-     * @param other مقدار دوم برای مقایسه.
-     * @return true اگر مقدار فعلی کوچک‌تر باشد، در غیر این صورت false.
-     */
-    fun isLessThan(other: Currency): Boolean {
-        return value.compareTo(other.value) < 0
-    }
-
-    /**
-     * اضافه کردن مقدار دیگر به مقدار فعلی (عملیات جمع درجا).
-     * @param currency مقداری که باید به مقدار فعلی اضافه شود.
-     */
-    fun addAssign(currency: Currency) {
-        this.value = this.value.add(currency.value)
-    }
-
-    /**
-     * کم کردن مقدار دیگر از مقدار فعلی (عملیات تفریق درجا).
-     * @param currency مقداری که باید از مقدار فعلی کم شود.
-     */
-    fun subtractAssign(currency: Currency) {
-        this.value = this.value.subtract(currency.value)
-    }
-
-    /**
-     * تبدیل مقدار پولی به عدد Double.
-     * @return مقدار پولی به صورت Double.
-     */
-    fun toDouble(): Double {
-        return value.toDouble()
-    }
-
-    /**
-     * تبدیل مقدار پولی به عدد Int.
-     * @return مقدار پولی به صورت Int.
-     */
-    fun toInt(): Int {
-        return value.toInt()
-    }
-
-    /**
-     * تبدیل مقدار پولی به رشته.
-     * @return مقدار پولی به صورت رشته.
-     */
-    override fun toString(): String {
-        return value.toString()
-    }
+    // ---------------- Companion ----------------
 
     companion object {
-        /**
-         * مقادیر ثابت پیش‌فرض برای مقادیر پولی.
-         */
-        val ZERO = Currency(0) // مقدار صفر
-        val ONE = Currency(1) // مقدار یک
-        val TEN = Currency(10) // مقدار ده
-        val HUNDRED = Currency(100) // مقدار صد
-
-        /**
-         * تحلیل و تبدیل رشته ورودی به مقدار BigDecimal.
-         * @param value رشته ورودی حاوی مقدار پولی.
-         * @return مقدار تحلیل‌شده به صورت BigDecimal.
-         * @throws ParseException در صورتی که فرمت ورودی نامعتبر باشد.
-         */
-        private fun parse(value: String): BigDecimal {
-            val cleanedValue = EnhancedNumberConverter.convertToWestern(value).replace(",", "")
-            return try {
-                BigDecimal(cleanedValue)
-            } catch (e: NumberFormatException) {
-                throw ParseException("فرمت ورودی نامعتبر است: $value", 0)
+        /** سازنده ایمن از Number — بدون از دست‌دادن دقت double */
+        fun of(number: Number): Currency {
+            val bd = when (number) {
+                is BigDecimal -> number
+                is Long -> BigDecimal.valueOf(number)
+                is Int -> BigDecimal.valueOf(number.toLong())
+                is Short -> BigDecimal.valueOf(number.toLong())
+                is Byte -> BigDecimal.valueOf(number.toLong())
+                is Double -> BigDecimal.valueOf(number) // valueOf برای double بی‌خطرتر از BigDecimal(double) است
+                is Float -> BigDecimal.valueOf(number.toDouble())
+                else -> BigDecimal(number.toString())
             }
+            return Currency(bd)
+        }
+
+        /** سازنده از String (پشتیبانی از جداکننده‌های فارسی/لاتین و پرانتز حسابداری) */
+        @Throws(ParseException::class)
+        fun of(value: String): Currency = Currency(parse(value))
+
+        val ZERO: Currency = of(0)
+        val ONE: Currency = of(1)
+        val TEN: Currency = of(10)
+        val HUNDRED: Currency = of(100)
+
+        /** پارس امن رشته پولی به BigDecimal */
+        @Throws(ParseException::class)
+        private fun parse(input: String): BigDecimal {
+            if (input.isBlank()) throw ParseException("ورودی خالی است", 0)
+
+            // ۱) به انگلیسی، ۲) حذف جداکنندهٔ هزار فارسی/لاتین، ۳) trim
+            var s = EnhancedNumberConverter.convertToWestern(input)
+                .replace("٬", "") // Persian grouping
+                .replace(",", "") // Latin grouping
+                .trim()
+
+            // ۴) پرانتز حسابداری: "(123.45)" یا "123.45-" → "-123.45"
+            if (s.startsWith("(") && s.endsWith(")")) {
+                s = "-${s.substring(1, s.length - 1)}"
+            } else if (s.endsWith("-")) {
+                s = "-${s.dropLast(1)}"
+            }
+
+            return try {
+                BigDecimal(s)
+            } catch (e: NumberFormatException) {
+                throw ParseException("فرمت ورودی نامعتبر است: $input", 0)
+            }
+        }
+
+        // کمک: تبدیل امن به Int حتی اگر خارج از بازه Int باشد (truncate)
+        private fun BigDecimal.toIntExactOrTruncated(): Int = try {
+            this.intValueExact()
+        } catch (_: ArithmeticException) {
+            this.toBigInteger().toInt()
         }
     }
 }

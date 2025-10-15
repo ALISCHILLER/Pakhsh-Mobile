@@ -6,180 +6,106 @@ import java.text.DecimalFormatSymbols
 import java.util.Locale
 
 /**
- * ابزار کمکی بهبودیافته برای تبدیل، اعتبارسنجی، قالب‌بندی و محاسبه اعداد فارسی و انگلیسی.
+ * ابزار بهبودیافته برای تبدیل، اعتبارسنجی، قالب‌بندی و محاسبه اعداد فارسی/انگلیسی/عربی.
  */
 object EnhancedNumberConverter {
 
     // --- جداول نگاشت ---
-    private val westernDigits = charArrayOf('0', '1', '2', '3', '4', '5', '6', '7', '8', '9')
-    private val persianDigits = charArrayOf('۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹')
-    // برای سهولت، یک Map کامل برای تبدیل به هر دو جهت ایجاد می‌کنیم
+    private val westernDigits = charArrayOf('0','1','2','3','4','5','6','7','8','9')
+    private val persianDigits = charArrayOf('۰','۱','۲','۳','۴','۵','۶','۷','۸','۹')
+    private val arabicDigits  = charArrayOf('٠','١','٢','٣','٤','٥','٦','٧','٨','٩')
+
     private val westernToPersianMap = westernDigits.zip(persianDigits).toMap()
     private val persianToWesternMap = persianDigits.zip(westernDigits).toMap()
+    private val arabicToWesternMap  = arabicDigits.zip(westernDigits).toMap()
 
     // --- تبدیل اعداد ---
 
-    /**
-     * تبدیل تمام اعداد انگلیسی در متن به معادل فارسی.
-     * در صورت null بودن ورودی، رشته خالی برمی‌گرداند.
-     *
-     * @param input متن ورودی (می‌تواند null باشد).
-     * @return متن با اعداد تبدیل شده به فارسی یا رشته خالی اگر ورودی null بود.
-     */
+    /** تبدیل اعداد انگلیسی به فارسی (دیگر کاراکترها دست‌نخورده) */
     fun convertToPersian(input: String?): String {
         if (input == null) return ""
-        return input.map { char -> westernToPersianMap[char] ?: char }.joinToString("")
+        return buildString(input.length) {
+            input.forEach { ch -> append(westernToPersianMap[ch] ?: ch) }
+        }
     }
 
-    /**
-     * تبدیل تمام اعداد فارسی در متن به معادل انگلیسی (غربی).
-     * در صورت null بودن ورودی، رشته خالی برمی‌گرداند.
-     *
-     * @param input متن ورودی (می‌تواند null باشد).
-     * @return متن با اعداد تبدیل شده به انگلیسی یا رشته خالی اگر ورودی null بود.
-     */
+    /** تبدیل اعداد فارسی و عربی به انگلیسی (غربی) */
     fun convertToWestern(input: String?): String {
         if (input == null) return ""
-        return input.map { char -> persianToWesternMap[char] ?: char }.joinToString("")
+        return buildString(input.length) {
+            input.forEach { ch ->
+                append(
+                    persianToWesternMap[ch]
+                        ?: arabicToWesternMap[ch]
+                        ?: ch
+                )
+            }
+        }
     }
 
     // --- اعتبارسنجی ---
 
-    /**
-     * بررسی می‌کند که آیا کل رشته فقط و فقط شامل اعداد فارسی یا انگلیسی است یا خیر.
-     * کاراکترهای دیگر (حروف، فاصله، علائم) مجاز نیستند.
-     *
-     * @param input متن ورودی (می‌تواند null باشد).
-     * @return true اگر رشته فقط عدد باشد، در غیر این صورت false.
-     */
+    /** آیا رشته فقط شامل رقم است؟ (بدون علامت/ممیز) — بعد از تبدیل به انگلیسی چک می‌کنیم */
     fun isPurelyNumeric(input: String?): Boolean {
         if (input.isNullOrEmpty()) return false
-        // ابتدا به انگلیسی تبدیل کن تا بررسی ساده‌تر شود
-        val westernInput = convertToWestern(input)
-        return westernInput.all { it.isDigit() }
+        val s = convertToWestern(input)
+        return s.isNotEmpty() && s.all { it.isDigit() }
     }
 
     /**
-     * بررسی می‌کند که آیا رشته یک عدد معتبر (صحیح یا اعشاری) است یا خیر.
-     * از اعداد فارسی یا انگلیسی، علامت منفی اختیاری در ابتدا و یک نقطه/ممیز اعشار پشتیبانی می‌کند.
-     *
-     * @param input متن ورودی (می‌تواند null باشد).
-     * @param persianDecimalSeparator کاراکتر ممیز فارسی (معمولاً '٫').
-     * @return true اگر رشته یک عدد معتبر باشد، در غیر این صورت false.
+     * بررسی اعتبار عدد (صحیح یا اعشاری). علامت منفی در ابتدا مجاز، یک ممیز اعشار مجاز.
+     * جداکننده‌های گروه فارسی/لاتین نادیده گرفته می‌شوند.
      */
     fun isValidNumberString(input: String?, persianDecimalSeparator: Char = '٫'): Boolean {
         if (input.isNullOrEmpty()) return false
-
-        // همه اعداد را به انگلیسی و ممیز فارسی را به نقطه تبدیل کن
-        val normalized = buildString {
-            var hasDecimalSeparator = false
-            input.forEachIndexed { index, char ->
-                when {
-                    persianToWesternMap.containsKey(char) -> append(persianToWesternMap[char])
-                    char == persianDecimalSeparator -> {
-                        if (!hasDecimalSeparator) {
-                            append('.')
-                            hasDecimalSeparator = true
-                        } else {
-                            return false // دو ممیز مجاز نیست
-                        }
-                    }
-                    char == '.' -> {
-                        if (!hasDecimalSeparator) {
-                            append('.')
-                            hasDecimalSeparator = true
-                        } else {
-                            return false // دو ممیز مجاز نیست
-                        }
-                    }
-                    char == '-' && index == 0 -> append('-') // علامت منفی فقط در ابتدا مجاز است
-                    char.isDigit() -> append(char) // اعداد انگلیسی
-                    else -> return false // کاراکتر غیرمجاز
-                }
-            }
-        }
-        // رشته نرمال‌شده را امتحان کن که آیا به Double تبدیل می‌شود یا خیر
+        val normalized = normalizeNumericString(input, persianDecimalSeparator) ?: return false
         return normalized.toDoubleOrNull() != null
     }
 
+    // --- تبدیل و پارس ---
 
-    // --- تبدیل و پارس کردن ---
-
-    /**
-     * تبدیل متن حاوی اعداد فارسی/انگلیسی به عدد صحیح (Int).
-     * ابتدا اعداد فارسی را به انگلیسی تبدیل می‌کند.
-     *
-     * @param input متن ورودی (می‌تواند null باشد).
-     * @return مقدار Int یا null اگر تبدیل ممکن نباشد.
-     */
-    fun parseInt(input: String?): Int? {
-        if (input == null) return null
-        // فقط ارقام را استخراج کن (بدون علامت یا اعشار)
-        val digitsOnly = convertToWestern(input).filter { it.isDigit() }
-        if (digitsOnly.isEmpty() && input.contains('۰')) { // Case for input "۰"
-            return 0
-        }
-        return digitsOnly.toIntOrNull()
+    /** Int با پشتیبانی از علامت و حذف جداکننده گروه */
+    fun parseInt(input: String?, persianDecimalSeparator: Char = '٫'): Int? {
+        if (input.isNullOrBlank()) return null
+        val s = normalizeNumericString(input, persianDecimalSeparator)?.let {
+            // عدد صحیح: باید بدون ممیز باشد
+            if (it.contains('.')) null else it
+        } ?: return null
+        return s.toIntOrNull()
     }
 
-    /**
-     * تبدیل متن حاوی اعداد فارسی/انگلیسی به عدد اعشاری (Double).
-     * از ممیز فارسی ('٫') و انگلیسی ('.') پشتیبانی می‌کند.
-     *
-     * @param input متن ورودی (می‌تواند null باشد).
-     * @param persianDecimalSeparator کاراکتر ممیز فارسی.
-     * @return مقدار Double یا null اگر تبدیل ممکن نباشد.
-     */
+    /** Double با پشتیبانی از علامت و جداکننده گروه */
     fun parseDouble(input: String?, persianDecimalSeparator: Char = '٫'): Double? {
-        if (input == null) return null
-        val westernInput = convertToWestern(input).replace(persianDecimalSeparator, '.')
-        return westernInput.toDoubleOrNull()
+        if (input.isNullOrBlank()) return null
+        val s = normalizeNumericString(input, persianDecimalSeparator) ?: return null
+        return s.toDoubleOrNull()
     }
 
-    /**
-     * تبدیل متن حاوی اعداد فارسی/انگلیسی به BigDecimal برای دقت بالا.
-     *
-     * @param input متن ورودی (می‌تواند null باشد).
-     * @param persianDecimalSeparator کاراکتر ممیز فارسی.
-     * @return مقدار BigDecimal یا null اگر تبدیل ممکن نباشد.
-     */
+    /** BigDecimal با پشتیبانی از علامت و جداکننده گروه */
     fun parseBigDecimal(input: String?, persianDecimalSeparator: Char = '٫'): BigDecimal? {
-        if (input == null) return null
-        val westernInput = convertToWestern(input).replace(persianDecimalSeparator, '.')
-        return westernInput.toBigDecimalOrNull()
+        if (input.isNullOrBlank()) return null
+        val s = normalizeNumericString(input, persianDecimalSeparator) ?: return null
+        return s.toBigDecimalOrNull()
     }
 
-    // --- قالب‌بندی اعداد ---
+    // --- قالب‌بندی ---
 
-    /**
-     * قالب‌بندی یک عدد با جداکننده‌ی هزارگان و تعداد مشخصی رقم اعشار، با استفاده از اعداد انگلیسی.
-     *
-     * @param number عددی که باید قالب‌بندی شود.
-     * @param decimalPlaces تعداد ارقام اعشار.
-     * @param useGrouping آیا از جداکننده هزارگان استفاده شود (مثلاً 1,234.56).
-     * @return رشته قالب‌بندی شده با اعداد انگلیسی.
-     */
-    fun formatNumberWestern(number: Number, decimalPlaces: Int = 2, useGrouping: Boolean = true): String {
+    /** فرمت انگلیسی (کاما برای هزارگان، نقطه برای اعشار) */
+    fun formatNumberWestern(
+        number: Number,
+        decimalPlaces: Int = 2,
+        useGrouping: Boolean = true
+    ): String {
         val format = DecimalFormat().apply {
             maximumFractionDigits = decimalPlaces
             minimumFractionDigits = decimalPlaces
             isGroupingUsed = useGrouping
-            // اطمینان از استفاده از تنظیمات استاندارد انگلیسی (نقطه برای اعشار، کاما برای گروه)
             decimalFormatSymbols = DecimalFormatSymbols(Locale.US)
         }
         return format.format(number)
     }
 
-    /**
-     * قالب‌بندی یک عدد با جداکننده‌ی هزارگان و تعداد مشخصی رقم اعشار، با استفاده از اعداد فارسی.
-     *
-     * @param number عددی که باید قالب‌بندی شود.
-     * @param decimalPlaces تعداد ارقام اعشار.
-     * @param useGrouping آیا از جداکننده هزارگان استفاده شود (مثلاً ۱٬۲۳۴٫۵۶).
-     * @param persianGroupingSeparator جداکننده هزارگان فارسی (معمولاً '٬').
-     * @param persianDecimalSeparator جداکننده اعشار فارسی (معمولاً '٫').
-     * @return رشته قالب‌بندی شده با اعداد فارسی.
-     */
+    /** فرمت فارسی (٬ برای هزارگان، ٫ برای اعشار و ارقام فارسی) */
     fun formatNumberPersian(
         number: Number,
         decimalPlaces: Int = 2,
@@ -187,109 +113,93 @@ object EnhancedNumberConverter {
         persianGroupingSeparator: Char = '٬',
         persianDecimalSeparator: Char = '٫'
     ): String {
-        // نمادهای فارسی را تعریف می‌کنیم
-        val persianSymbols = DecimalFormatSymbols(Locale("fa")).apply { // استفاده از لوکال فارسی
-            // می‌توانیم نمادها را دستی هم تنظیم کنیم اگر لوکال دقیقاً چیزی که می‌خواهیم نباشد
+        val symbols = DecimalFormatSymbols(Locale("fa")).apply {
             zeroDigit = '۰'
-            digit = '#' // این مهم است
+            digit = '#'
             groupingSeparator = persianGroupingSeparator
             decimalSeparator = persianDecimalSeparator
-            minusSign = '-' // علامت منفی استاندارد
+            minusSign = '-'
         }
-
-        // الگو را بر اساس نیاز می‌سازیم
         val pattern = buildString {
             append(if (useGrouping) "#,##0" else "0")
             if (decimalPlaces > 0) {
-                append(".") // الگو از نقطه استفاده می‌کند، اما symbols آن را به ممیز فارسی تبدیل می‌کند
+                append(".")
                 append("0".repeat(decimalPlaces))
             }
         }
-
-        val format = DecimalFormat(pattern, persianSymbols).apply{
-            roundingMode = java.math.RoundingMode.HALF_UP // تعیین نحوه گرد کردن
+        val format = DecimalFormat(pattern, symbols).apply {
+            roundingMode = java.math.RoundingMode.HALF_UP
         }
-
         return format.format(number)
     }
 
+    // --- عملیات با BigDecimal ---
 
-    // --- توابع محاسباتی (استفاده از BigDecimal برای دقت) ---
-
-    /**
-     * جمع دو عدد داده شده به صورت رشته. اعداد می‌توانند فارسی یا انگلیسی باشند.
-     * از BigDecimal برای دقت بالا استفاده می‌کند.
-     *
-     * @param numStr1 رشته عدد اول.
-     * @param numStr2 رشته عدد دوم.
-     * @return نتیجه جمع به صورت BigDecimal یا null اگر ورودی‌ها نامعتبر باشند.
-     */
     fun add(numStr1: String?, numStr2: String?): BigDecimal? {
-        val num1 = parseBigDecimal(numStr1)
-        val num2 = parseBigDecimal(numStr2)
-        return if (num1 != null && num2 != null) {
-            num1.add(num2)
-        } else {
-            null
-        }
+        val a = parseBigDecimal(numStr1); val b = parseBigDecimal(numStr2)
+        return if (a != null && b != null) a.add(b) else null
     }
-
-    /**
-     * تفریق دو عدد داده شده به صورت رشته.
-     * @return نتیجه تفریق به صورت BigDecimal یا null.
-     */
     fun subtract(numStr1: String?, numStr2: String?): BigDecimal? {
-        val num1 = parseBigDecimal(numStr1)
-        val num2 = parseBigDecimal(numStr2)
-        return if (num1 != null && num2 != null) {
-            num1.subtract(num2)
-        } else {
-            null
-        }
+        val a = parseBigDecimal(numStr1); val b = parseBigDecimal(numStr2)
+        return if (a != null && b != null) a.subtract(b) else null
     }
-
-    /**
-     * ضرب دو عدد داده شده به صورت رشته.
-     * @return نتیجه ضرب به صورت BigDecimal یا null.
-     */
     fun multiply(numStr1: String?, numStr2: String?): BigDecimal? {
-        val num1 = parseBigDecimal(numStr1)
-        val num2 = parseBigDecimal(numStr2)
-        return if (num1 != null && num2 != null) {
-            num1.multiply(num2)
-        } else {
-            null
-        }
+        val a = parseBigDecimal(numStr1); val b = parseBigDecimal(numStr2)
+        return if (a != null && b != null) a.multiply(b) else null
     }
-
-    /**
-     * تقسیم دو عدد داده شده به صورت رشته.
-     * در صورت تقسیم بر صفر، ArithmeticException پرتاب می‌شود.
-     *
-     * @param numStr1 رشته عدد اول (مقسوم).
-     * @param numStr2 رشته عدد دوم (مقسوم علیه).
-     * @param scale تعداد ارقام اعشار برای نتیجه تقسیم (پیش‌فرض 10).
-     * @param roundingMode نحوه گرد کردن (پیش‌فرض HALF_UP).
-     * @return نتیجه تقسیم به صورت BigDecimal یا null اگر ورودی‌ها نامعتبر باشند.
-     * @throws ArithmeticException اگر مقسوم علیه صفر باشد.
-     */
     @Throws(ArithmeticException::class)
     fun divide(
         numStr1: String?,
         numStr2: String?,
-        scale: Int = 10, // تعداد ارقام اعشار نتیجه
+        scale: Int = 10,
         roundingMode: java.math.RoundingMode = java.math.RoundingMode.HALF_UP
     ): BigDecimal? {
-        val num1 = parseBigDecimal(numStr1)
-        val num2 = parseBigDecimal(numStr2)
+        val a = parseBigDecimal(numStr1); val b = parseBigDecimal(numStr2)
+        return if (a != null && b != null) {
+            if (b == BigDecimal.ZERO) throw ArithmeticException("Division by zero")
+            a.divide(b, scale, roundingMode)
+        } else null
+    }
 
-        return if (num1 != null && num2 != null) {
-            if (num2 == BigDecimal.ZERO) {
-                throw ArithmeticException("Division by zero")
-            }
-            num1.divide(num2, scale, roundingMode)
-        } else {
-            null
+    // --- ابزار داخلی ---
+
+    /**
+     * نرمال‌سازی عدد به رشتهٔ انگلیسی با:
+     *  - تبدیل ارقام فارسی/عربی به انگلیسی
+     *  - حذف جداکننده هزارگان فارسی/لاتین
+     *  - تبدیل ممیز فارسی به نقطه
+     *  - پشتیبانی از پرانتز حسابداری و علامت انتهایی
+     * خروجی: چیزی شبیه "-1234.56" یا "1234"
+     */
+    private fun normalizeNumericString(input: String, persianDecimalSeparator: Char): String? {
+        var s = convertToWestern(input)
+            .replace(" ", "")
+            .replace("\u200F", "") // RLM
+            .replace("\u200E", "") // LRM
+            .replace("٬", "")      // Persian grouping
+            .replace(",", "")      // Latin grouping
+            .replace(persianDecimalSeparator, '.') // Persian decimal → dot
+            .trim()
+
+        if (s.isEmpty()) return null
+
+        // پرانتز حسابداری و علامت منفی انتهایی
+        if (s.startsWith("(") && s.endsWith(")")) {
+            s = "-${s.substring(1, s.length - 1)}"
+        } else if (s.endsWith("-")) {
+            s = "-${s.dropLast(1)}"
         }
+
+        // فقط یک علامت منفی در ابتدا مجاز است
+        if (s.count { it == '-' } > 1) return null
+        if (s.indexOf('-') > 0) return null
+
+        // فقط یک ممیز مجاز است
+        if (s.count { it == '.' } > 1) return null
+
+        // حداقل باید رقم داشته باشد
+        if (s.none { it.isDigit() }) return null
+
+        return s
     }
 }

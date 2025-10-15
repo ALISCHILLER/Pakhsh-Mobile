@@ -1,9 +1,9 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    id("com.google.devtools.ksp")
+    alias(dependency.plugins.ksp)
     alias(libs.plugins.kotlin.compose)
-    id("kotlinx-serialization")
+    alias(dependency.plugins.kotlin.serialization)
 }
 
 android {
@@ -89,7 +89,6 @@ dependencies {
     //network ktor
     implementation(platform(dependency.ktor.bom))
     implementation(dependency.ktor.android)
-    implementation(dependency.ktor.serialization)
     implementation(dependency.ktor.logging)
     implementation(dependency.ktor.negotiation)
     implementation(dependency.ktor.json)

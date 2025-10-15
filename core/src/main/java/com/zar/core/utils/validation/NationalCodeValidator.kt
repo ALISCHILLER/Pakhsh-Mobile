@@ -1,90 +1,78 @@
 package com.zar.core.utils.validation
 
-
-
-
 /**
- * کلاس اعتبارسنجی کد ملی.
- * این کلاس از الگوریتم استاندارد ایران برای اعتبارسنجی کد ملی استفاده می‌کند.
+ * اعتبارسنجی کد ملی ایران با نرمال‌سازی ورودی (ارقام فارسی/عربی، جداکننده‌ها).
  */
 object NationalCodeValidator {
 
     /**
-     * اعتبارسنجی کد ملی بر اساس استانداردهای رسمی ایران.
-     * @param nationalCode کد ملی ورودی
-     * @return true اگر کد ملی معتبر باشد، در غیر این صورت false
+     * بررسی صحت کد ملی (true یعنی معتبر).
      */
     fun isValid(nationalCode: String): Boolean {
-        // بررسی طول کد ملی
-        if (nationalCode.length != 10) return false
+        val code = normalize(nationalCode) ?: return false
 
-        // بررسی اینکه تمام کاراکترها عدد باشند
-        if (!nationalCode.all { it.isDigit() }) return false
+        // رد الگوهای تکراری: 0000000000، 1111111111، ...
+        if (code.toSet().size == 1) return false
 
-        // بررسی کد ملی‌های نامعتبر مانند "0000000000"
-        if (nationalCode.toSet().size == 1) return false
-
-        // محاسبه رقم کنترل
-        val digits = nationalCode.map { it.toString().toInt() }
+        val digits = code.map { it.digitToInt() }
         val checkDigit = digits.last()
-        val sum = digits.take(9).foldIndexed(0) { index, acc, digit ->
-            acc + digit * (10 - index)
+        val sum = digits.take(9).foldIndexed(0) { idx, acc, d ->
+            acc + d * (10 - idx)
         }
-
         val remainder = sum % 11
-        val expectedCheckDigit = if (remainder < 2) remainder else 11 - remainder
-
-        return checkDigit == expectedCheckDigit
+        val expected = if (remainder < 2) remainder else 11 - remainder
+        return checkDigit == expected
     }
 
     /**
-     * اعتبارسنجی کد ملی و بازگرداندن پیام خطا.
-     * در صورت نامعتبر بودن، پیام خطا را برمی‌گرداند.
-     * @param nationalCode کد ملی ورودی
-     * @return پیام خطا در صورت نامعتبر بودن، در غیر این صورت null
+     * اعتبارسنجی با پیام خطا (null یعنی معتبر).
      */
     fun validateAndGetErrorMessage(nationalCode: String): String? {
-        // بررسی طول کد ملی
-        if (nationalCode.length != 10) {
-            return "طول کد ملی باید ۱۰ رقم باشد."
+        val raw = nationalCode
+        if (raw.isBlank()) return "کد ملی نباید خالی باشد."
+
+        val code = normalize(raw) ?: run {
+            // سعی می‌کنیم علت را دقیق‌تر بگوییم
+            val onlyDigits = mapToWesternDigits(raw).filter { it.isDigit() }
+            return when {
+                onlyDigits.length != 10 -> "طول کد ملی باید ۱۰ رقم باشد."
+                else -> "قالب کد ملی نامعتبر است."
+            }
         }
 
-        // بررسی اینکه تمام کاراکترها عدد باشند
-        if (!nationalCode.all { it.isDigit() }) {
-            return "کد ملی باید فقط شامل اعداد باشد."
-        }
-
-        // بررسی کد ملی‌های تکراری
-        if (nationalCode.toSet().size == 1) {
-            return "کد ملی نمی‌تواند شامل ارقام تکراری باشد."
-        }
-
-        // بررسی اعتبار کد ملی
-        if (!isValid(nationalCode)) {
-            return "کد ملی نامعتبر است."
-        }
-
+        if (code.toSet().size == 1) return "کد ملی نمی‌تواند از ارقام تکراری تشکیل شود."
+        if (!isValid(code)) return "کد ملی نامعتبر است."
         return null
     }
+
+    // ----------------- ابزارهای داخلی -----------------
+
+    /**
+     * نرمال‌سازی: تبدیل ارقام فارسی/عربی به انگلیسی + حذف هرچیز غیر عددی.
+     * اگر پس از نرمال‌سازی دقیقاً 10 رقم نبود، null.
+     */
+    private fun normalize(input: String): String? {
+        val onlyDigits = mapToWesternDigits(input).filter { it.isDigit() }
+        if (onlyDigits.length != 10) return null
+        return onlyDigits
+    }
+
+    /** نگاشت ارقام فارسی/عربی به انگلیسی (سایر کاراکترها دست‌نخورده می‌مانند). */
+    private fun mapToWesternDigits(s: String): String {
+        val sb = StringBuilder(s.length)
+        for (ch in s) {
+            sb.append(
+                when (ch) {
+                    // فارسی
+                    '۰' -> '0'; '۱' -> '1'; '۲' -> '2'; '۳' -> '3'; '۴' -> '4'
+                    '۵' -> '5'; '۶' -> '6'; '۷' -> '7'; '۸' -> '8'; '۹' -> '9'
+                    // عربی
+                    '٠' -> '0'; '١' -> '1'; '٢' -> '2'; '٣' -> '3'; '٤' -> '4'
+                    '٥' -> '5'; '٦' -> '6'; '٧' -> '7'; '٨' -> '8'; '٩' -> '9'
+                    else -> ch
+                }
+            )
+        }
+        return sb.toString()
+    }
 }
-
-
-
-// نحوه استفاده
-//val nationalCode = "0079021847" // مثال کد ملی معتبر
-//
-//if (NationalCodeValidator.isValid(nationalCode)) {
-//    println("کد ملی معتبر است.")
-//} else {
-//    println("کد ملی نامعتبر است.")
-//}
-
-//var nationalCode by remember { mutableStateOf("") }
-//var errorMessage by remember { mutableStateOf<String?>(null) }
-//errorMessage = NationalCodeValidator.validateAndGetErrorMessage(nationalCode)
-//
-//if (errorMessage != null) {
-//    Text(text = errorMessage!!, color = androidx.compose.ui.graphics.Color.Red)
-//} else {
-//    Text(text = "کد ملی معتبر است.", color = androidx.compose.ui.graphics.Color.Green)
-//}

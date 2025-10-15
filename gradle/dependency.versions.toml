@@ -1,71 +1,76 @@
 [versions]
-
-koin = "4.0.2"
-exoplayer = "1.6.1"
-ktor = "3.0.3"
-coroutines = "1.8.1"
-timber = "5.0.1"
-coil = "3.1.0"
-room = "2.6.1"
-camera = "1.4.0-alpha02"
+# DI/Media/Net/Coroutines/Log/Image/DB/Camera/Perm/Security/JSON
+koin        = "4.0.2"
+exoplayer   = "1.6.1"          # androidx.media3
+ktor        = "3.0.3"
+coroutines  = "1.8.1"
+timber      = "5.0.1"
+coil        = "3.1.0"
+room        = "2.6.1"
+camera      = "1.4.0-alpha02"  # اگر خواستی Stable تر: 1.3.x
 permissions = "0.30.1"
-security = "1.1.0"
-gson = "2.13.1"
+tinkAndroid = "1.13.0"
+security    = "1.1.0"          # androidx.security:security-crypto
+gson        = "2.13.1"
+
+# Tooling versions that MUST match Kotlin line:
+ksp                 = "2.0.21-1.0.27"
+kotlinxSerialization= "2.0.21" # پلاگین Serialization باید هم‌لاین Kotlin باشد
+kotlinxSerializationRuntime = "1.7.3"
 
 [libraries]
-
-# di  koin
-koin-android = { module = "io.insert-koin:koin-android", version.ref = "koin" }
+# Koin
+koin-android        = { module = "io.insert-koin:koin-android",           version.ref = "koin" }
 koin-androidx-compose = { module = "io.insert-koin:koin-androidx-compose", version.ref = "koin" }
-koin-test = { module = "io.insert-koin:koin-test-junit4", version.ref = "koin" }
-koin-android-test = { module = "io.insert-koin:koin-android-test", version.ref = "koin" }
+koin-test           = { module = "io.insert-koin:koin-test-junit4",       version.ref = "koin" }
+koin-android-test   = { module = "io.insert-koin:koin-android-test",      version.ref = "koin" }
 
-# exoplayer
-media3-exoplayer = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "exoplayer" }
-media3-ui = { group = "androidx.media3", name = "media3-ui", version.ref = "exoplayer" }
-media3-common = { group = "androidx.media3", name = "media3-common", version.ref = "exoplayer" }
+# Media3
+media3-exoplayer    = { group = "androidx.media3", name = "media3-exoplayer", version.ref = "exoplayer" }
+media3-ui           = { group = "androidx.media3", name = "media3-ui",        version.ref = "exoplayer" }
+media3-common       = { group = "androidx.media3", name = "media3-common",    version.ref = "exoplayer" }
 
-# network ktor
-ktor-bom = { group = "io.ktor", name = "ktor-bom", version.ref = "ktor" }
-ktor-android = { module = "io.ktor:ktor-client-android", version.ref = "ktor" }
-ktor-serialization = { module = "io.ktor:ktor-client-serialization", version.ref = "ktor" }
-ktor-logging = { module = "io.ktor:ktor-client-logging", version.ref = "ktor" }
-ktor-negotiation = { module = "io.ktor:ktor-client-content-negotiation", version.ref = "ktor" }
-ktor-json = { module = "io.ktor:ktor-serialization-kotlinx-json", version.ref = "ktor" }
-ktor-okhttp = { module = "io.ktor:ktor-client-okhttp", version.ref = "ktor" }
-ktor-core          = { module = "io.ktor:ktor-client-core", version.ref = "ktor" }
-ktor-auth          = { module = "io.ktor:ktor-client-auth", version.ref = "ktor" }
-ktor-cache         = { module = "io.ktor:ktor-client-cache-jvm", version.ref = "ktor" }
-ktor-resources     = { module = "io.ktor:ktor-client-resources", version.ref = "ktor" }
-# اختیاری:
-ktor-websockets    = { module = "io.ktor:ktor-client-websockets", version.ref = "ktor" }
+# Ktor (BOM + modules)
+ktor-bom            = { group = "io.ktor", name = "ktor-bom",                    version.ref = "ktor" }
+ktor-core           = { module = "io.ktor:ktor-client-core",                     version.ref = "ktor" }
+ktor-android        = { module = "io.ktor:ktor-client-android",                  version.ref = "ktor" }
+ktor-okhttp         = { module = "io.ktor:ktor-client-okhttp",                   version.ref = "ktor" }
+ktor-logging        = { module = "io.ktor:ktor-client-logging",                  version.ref = "ktor" }
+ktor-negotiation    = { module = "io.ktor:ktor-client-content-negotiation",      version.ref = "ktor" }
+ktor-json           = { module = "io.ktor:ktor-serialization-kotlinx-json",      version.ref = "ktor" }
+ktor-auth           = { module = "io.ktor:ktor-client-auth",                     version.ref = "ktor" }
+ktor-resources      = { module = "io.ktor:ktor-client-resources",                version.ref = "ktor" }
+ktor-cache          = { module = "io.ktor:ktor-client-cache-jvm",                version.ref = "ktor" }
+ktor-websockets     = { module = "io.ktor:ktor-client-websockets",               version.ref = "ktor" }
 
-#coroutines
-coroutines-android = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+# Coroutines / Timber
+coroutines-android  = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-android", version.ref = "coroutines" }
+timber-log          = { module = "com.jakewharton.timber:timber",                  version.ref = "timber" }
 
-# log  timber
-timber-log = { module = "com.jakewharton.timber:timber", version.ref = "timber" }
+# Coil v3
+coil-image          = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
 
-#  image loader coil
-coil-image = { module = "io.coil-kt.coil3:coil-compose", version.ref = "coil" }
+# Room (with KSP)
+room-runtime        = { module = "androidx.room:room-runtime", version.ref = "room" }
+room-ktx            = { module = "androidx.room:room-ktx",     version.ref = "room" }
+room-compiler       = { module = "androidx.room:room-compiler", version.ref = "room" }
 
-# db room
-room-runtime = { module = "androidx.room:room-runtime", version.ref = "room" }
-room-compiler = { module = "androidx.room:room-compiler", version.ref = "room" }
-room-ktx = { module = "androidx.room:room-ktx", version.ref = "room" }
-
-# CameraX
-
-camera-core = { module = "androidx.camera:camera-core", version.ref = "camera" }
-camera-lifecycle = { module = "androidx.camera:camera-lifecycle", version.ref = "camera" }
-camera-view = { module = "androidx.camera:camera-view", version.ref = "camera" }
-# Permissions
+# CameraX / Permissions
+camera-core         = { module = "androidx.camera:camera-core",      version.ref = "camera" }
+camera-lifecycle    = { module = "androidx.camera:camera-lifecycle", version.ref = "camera" }
+camera-view         = { module = "androidx.camera:camera-view",      version.ref = "camera" }
 accompanist-permissions = { module = "com.google.accompanist:accompanist-permissions", version.ref = "permissions" }
 
-#security
-security-crypto = { module = "androidx.security:security-crypto", version.ref = "security" }
-# google gson
-google-gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+# Security (AndroidX + Tink)
+tink-android        = { module = "com.google.crypto.tink:tink-android", version.ref = "tinkAndroid" }
+security-crypto     = { module = "androidx.security:security-crypto",   version.ref = "security" }
+
+# JSON
+google-gson         = { module = "com.google.code.gson:gson", version.ref = "gson" }
+
+# kotlinx Serialization runtime (اختیاری)
+kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerializationRuntime" }
 
 [plugins]
-
+ksp                  = { id = "com.google.devtools.ksp",               version.ref = "ksp" }
+kotlin-serialization = { id = "org.jetbrains.kotlin.plugin.serialization", version.ref = "kotlinxSerialization" }
