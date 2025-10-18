@@ -9,7 +9,7 @@ espressoCore = "3.7.0"
 
 lifecycleRuntimeKtx = "2.9.4"
 activityCompose = "1.11.0"
-composeBom = "2024.09.00"
+composeBom = "2025.10.00"
 
 appcompat = "1.7.0"
 material3 = "1.3.2"
