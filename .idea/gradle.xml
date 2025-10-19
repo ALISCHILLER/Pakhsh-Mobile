@@ -12,8 +12,15 @@
             <option value="$PROJECT_DIR$" />
             <option value="$PROJECT_DIR$/app" />
             <option value="$PROJECT_DIR$/core" />
+            <option value="$PROJECT_DIR$/core-common" />
+            <option value="$PROJECT_DIR$/core-di" />
+            <option value="$PROJECT_DIR$/core-flags" />
+            <option value="$PROJECT_DIR$/core-logging" />
             <option value="$PROJECT_DIR$/core-media" />
+            <option value="$PROJECT_DIR$/core-network" />
+            <option value="$PROJECT_DIR$/core-storage" />
             <option value="$PROJECT_DIR$/core-ui" />
+            <option value="$PROJECT_DIR$/core-validation" />
             <option value="$PROJECT_DIR$/distributeApp" />
             <option value="$PROJECT_DIR$/persistenc" />
             <option value="$PROJECT_DIR$/supervisorApp" />
