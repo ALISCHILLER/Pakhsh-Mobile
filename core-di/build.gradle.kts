@@ -13,12 +13,9 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":core-common"))
+    api(project(":core-common"))
+    implementation(project(":core-logging"))
     implementation(project(":core-network"))
     implementation(project(":core-storage"))
-    implementation(project(":core-logging"))
-    implementation(project(":core-validation"))
-    implementation(project(":core-flags"))
-
-    //implementation(dependencies.koin.core)
+    implementation(dependency.koin.core)
 }

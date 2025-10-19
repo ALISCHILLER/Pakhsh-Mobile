@@ -13,7 +13,5 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":core-common"))
-    implementation(dependency.timber.log)
-    implementation(dependency.kotlinx.serialization.json)
+    api(project(":core-common"))
 }

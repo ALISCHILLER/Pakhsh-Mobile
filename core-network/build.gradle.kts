@@ -13,15 +13,6 @@ kotlin {
 }
 
 dependencies {
-    implementation(project(":core-common"))
-
-    implementation(platform(dependency.ktor.bom))
-    implementation(dependency.ktor.core)
-    implementation(dependency.ktor.okhttp)
-    implementation(dependency.ktor.logging)
-    implementation(dependency.ktor.negotiation)
-    implementation(dependency.ktor.json)
-
-    implementation(dependency.kotlinx.serialization.json)
+    api(project(":core-common"))
     implementation(dependency.coroutines.core)
 }

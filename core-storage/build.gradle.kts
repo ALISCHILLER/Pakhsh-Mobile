@@ -12,6 +12,6 @@ kotlin {
     }
 }
 dependencies {
-    implementation(project(":core-common"))
-    implementation(project(":core-network"))
+    api(project(":core-common"))
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 }

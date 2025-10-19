@@ -13,5 +13,5 @@ kotlin {
 }
 
 dependencies {
-    dependencies { api(kotlin("stdlib")) }
+    api(kotlin("stdlib"))
 }
