@@ -15,9 +15,9 @@
             <option value="$PROJECT_DIR$/core-media" />
             <option value="$PROJECT_DIR$/core-ui" />
             <option value="$PROJECT_DIR$/distributeApp" />
+            <option value="$PROJECT_DIR$/persistenc" />
             <option value="$PROJECT_DIR$/supervisorApp" />
             <option value="$PROJECT_DIR$/visitApp" />
-            <option value="$PROJECT_DIR$/zarPakhsh" />
           </set>
         </option>
       </GradleProjectSettings>

@@ -67,7 +67,7 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
-    implementation(project(":zarPakhsh"))
+    implementation(project(":persistenc"))
     implementation(project(":core"))
 
     //di koin
