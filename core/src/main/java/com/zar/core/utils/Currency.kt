@@ -4,7 +4,6 @@ import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.DecimalFormat
 import java.text.DecimalFormatSymbols
-import java.text.ParseException
 import java.util.Locale
 
 /**
@@ -100,39 +99,12 @@ class Currency private constructor(private val value: BigDecimal) : Comparable<C
             return Currency(bd)
         }
 
-        /** سازنده از String (پشتیبانی از جداکننده‌های فارسی/لاتین و پرانتز حسابداری) */
-        @Throws(ParseException::class)
-        fun of(value: String): Currency = Currency(parse(value))
+        fun fromBigDecimal(value: BigDecimal): Currency = Currency(value)
 
         val ZERO: Currency = of(0)
         val ONE: Currency = of(1)
         val TEN: Currency = of(10)
         val HUNDRED: Currency = of(100)
-
-        /** پارس امن رشته پولی به BigDecimal */
-        @Throws(ParseException::class)
-        private fun parse(input: String): BigDecimal {
-            if (input.isBlank()) throw ParseException("ورودی خالی است", 0)
-
-            // ۱) به انگلیسی، ۲) حذف جداکنندهٔ هزار فارسی/لاتین، ۳) trim
-            var s = EnhancedNumberConverter.convertToWestern(input)
-                .replace("٬", "") // Persian grouping
-                .replace(",", "") // Latin grouping
-                .trim()
-
-            // ۴) پرانتز حسابداری: "(123.45)" یا "123.45-" → "-123.45"
-            if (s.startsWith("(") && s.endsWith(")")) {
-                s = "-${s.substring(1, s.length - 1)}"
-            } else if (s.endsWith("-")) {
-                s = "-${s.dropLast(1)}"
-            }
-
-            return try {
-                BigDecimal(s)
-            } catch (e: NumberFormatException) {
-                throw ParseException("فرمت ورودی نامعتبر است: $input", 0)
-            }
-        }
 
         // کمک: تبدیل امن به Int حتی اگر خارج از بازه Int باشد (truncate)
         private fun BigDecimal.toIntExactOrTruncated(): Int = try {

@@ -1,5 +1,7 @@
 package com.zar.core.utils.validation
 
+
+import java.util.concurrent.atomic.AtomicReference
 /**
  * اعتبارسنجی شماره موبایل ایران.
  *
@@ -10,15 +12,25 @@ package com.zar.core.utils.validation
  */
 object MobileNumberValidator {
 
-    // پیش‌شماره‌های معتبر (در صورت نیاز بروزرسانی‌شان کنید)
-    // نکته: Set -> بدون تکرار
-    private val validPrefixes: Set<String> = setOf(
+    private val defaultPrefixes: Set<String> = setOf(
         "0912", "0919",
         "0930", "0933", "0934", "0935", "0936", "0937", "0938", "0939",
         "0901", "0902", "0903", "0904", "0905",
         "0920", "0921", "0922",
         "0990"
     )
+
+    private val prefixStore = AtomicReference(defaultPrefixes)
+
+    fun configureValidPrefixes(prefixes: Collection<String>) {
+        val sanitized = prefixes.mapNotNull { it.trim().takeIf(String::isNotEmpty) }.toSet()
+        if (sanitized.isNotEmpty()) {
+            prefixStore.set(sanitized)
+        }
+    }
+
+    fun currentPrefixes(): Set<String> = prefixStore.get()
+
 
     // الگوی شماره داخلی استاندارد ایران: 11 رقم، شروع با 09
     private val iranLocalRegex = Regex("^09\\d{9}$")
@@ -52,7 +64,7 @@ object MobileNumberValidator {
      */
     fun isValid(mobileNumber: String): Boolean {
         val local = normalizeToLocal(mobileNumber) ?: return false
-        return local.take(4) in validPrefixes
+        return local.take(4) in currentPrefixes()
     }
 
     /**
@@ -73,7 +85,7 @@ object MobileNumberValidator {
 
         if (local.length != 11) return "طول شماره موبایل باید ۱۱ رقم باشد."
         if (!iranLocalRegex.matches(local)) return "قالب شماره موبایل نامعتبر است."
-        if (local.take(4) !in validPrefixes) return "پیش‌شماره نامعتبر است."
+        if (local.take(4) !in currentPrefixes()) return "پیش‌شماره نامعتبر است."
 
         return null
     }

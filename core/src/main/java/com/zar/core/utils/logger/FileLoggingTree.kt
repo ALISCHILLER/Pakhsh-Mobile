@@ -16,7 +16,8 @@ import java.util.TimeZone
 class FileLoggingTree(
     internal val file: File,
     private val maxBytes: Long = 512 * 1024,   // 512KB
-    private val maxBackups: Int = 3            // تعداد backup ها: file.1, file.2, ...
+    private val maxBackups: Int = 3,           // تعداد backup ها: file.1, file.2, ...
+    private val maxFileAgeMillis: Long? = null // دوران حداکثر عمر فایل برای rotation زمان‌محور
 ) : Timber.Tree() {
 
     private val lock = Any()
@@ -53,7 +54,7 @@ class FileLoggingTree(
 
     private fun rotateIfNeeded() {
         if (!file.exists()) return
-        if (file.length() < maxBytes) return
+        if (!shouldRotateBySize() && !shouldRotateByAge()) return
 
         // delete oldest
         val oldest = File(file.parent, "${file.name}.$maxBackups")
@@ -73,6 +74,16 @@ class FileLoggingTree(
         // create fresh file
         runCatching { file.createNewFile() }.getOrNull()
     }
+
+    private fun shouldRotateBySize(): Boolean = file.length() >= maxBytes
+
+    private fun shouldRotateByAge(): Boolean {
+        val maxAge = maxFileAgeMillis ?: return false
+        val lastModified = file.lastModified()
+        if (lastModified <= 0L) return false
+        return System.currentTimeMillis() - lastModified >= maxAge
+    }
+
 
     private fun buildLogLine(priority: Int, tag: String?, message: String, t: Throwable?): String {
         val ts = tsFormat.format(Date())

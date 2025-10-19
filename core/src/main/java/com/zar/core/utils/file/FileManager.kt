@@ -45,6 +45,14 @@ class FileManager(private val context: Context) {
         return filter?.let { predicate -> files.filter(predicate) } ?: files
     }
 
+    /** نسخه‌ای که یک File موجود را می‌پذیرد. */
+    fun listFiles(directory: File, filter: ((File) -> Boolean)? = null): List<File> {
+        if (!directory.exists() || !directory.isDirectory) return emptyList()
+        val files = directory.listFiles()?.toList().orEmpty()
+        return filter?.let { predicate -> files.filter(predicate) } ?: files
+    }
+
+
     /** خالی‌کردن یک پوشه؛ در صورت نیاز خود پوشه هم حذف می‌شود. */
     fun clearDirectory(directoryName: String, removeDirectory: Boolean = false): Boolean {
         val directory = safeResolve(baseDir, directoryName)
@@ -81,7 +89,7 @@ class FileManager(private val context: Context) {
     }
 
     /** اندازه‌ی فایل بر حسب بایت. */
-    fun fileSize(file: File): Long = file.length()
+    fun fileSize(file: File): Long = if (file.exists()) file.length() else 0L
 
     /** آیا فایل خالی است؟ (وجود + طول) */
     fun isFileEmpty(file: File): Boolean = !file.exists() || file.length() == 0L
@@ -104,6 +112,18 @@ class FileManager(private val context: Context) {
         val file = safeResolve(directory, fileName)
         return file.exists() && file.delete()
     }
+
+    /** اطمینان از وجود دایرکتوری مشخص. */
+    fun ensureDirectory(directory: File): Boolean =
+        (directory.exists() && directory.isDirectory) || directory.mkdirs()
+
+    /** حذف بی‌سروصدا (بدون exception) برای فایل یا پوشه. */
+    fun deleteQuietly(target: File): Boolean =
+        if (!target.exists()) false
+        else runCatching {
+            if (target.isDirectory) target.deleteRecursively() else target.delete()
+        }.getOrDefault(false)
+
 
     // ---------------- Write ----------------
 

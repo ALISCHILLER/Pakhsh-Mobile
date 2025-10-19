@@ -161,6 +161,37 @@ object EnhancedNumberConverter {
         } else null
     }
 
+
+    // --- Currency helpers ---
+
+    fun parseCurrency(input: String?, scale: Int = 2): Currency? {
+        val value = parseBigDecimal(input) ?: return null
+        return Currency.fromBigDecimal(value.setScale(scale, java.math.RoundingMode.HALF_UP))
+    }
+
+    fun Currency.formatAsPersianCurrency(
+        decimalPlaces: Int = 2,
+        useGrouping: Boolean = true,
+        persianGroupingSeparator: Char = '٬',
+        persianDecimalSeparator: Char = '٫'
+    ): String = formatNumberPersian(
+        number = toBigDecimal(),
+        decimalPlaces = decimalPlaces,
+        useGrouping = useGrouping,
+        persianGroupingSeparator = persianGroupingSeparator,
+        persianDecimalSeparator = persianDecimalSeparator
+    )
+
+    fun Currency.formatAsWesternCurrency(
+        decimalPlaces: Int = 2,
+        useGrouping: Boolean = true
+    ): String = formatNumberWestern(
+        number = toBigDecimal(),
+        decimalPlaces = decimalPlaces,
+        useGrouping = useGrouping
+    )
+
+
     // --- ابزار داخلی ---
 
     /**

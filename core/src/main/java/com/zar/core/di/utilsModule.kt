@@ -5,7 +5,6 @@ import android.content.Context
 import com.google.gson.Gson
 import com.zar.core.config.AppConfig
 import com.zar.core.data.storage.BaseSharedPreferences
-import com.zar.core.ui.camera.CameraHelper
 import com.zar.core.utils.Currency
 import com.zar.core.utils.EnhancedNumberConverter
 import com.zar.core.utils.file.FileManager
@@ -16,7 +15,7 @@ import org.koin.dsl.module
 
 val utilsModule = module {
     single { EnhancedNumberConverter }
-    factory { Currency(0) } // مقدار پیش‌فرض صفر
+    factory { Currency.of(0) } // مقدار پیش‌فرض صفر
     single { NationalCodeValidator } // مقدار پیش‌فرض صفر
 
     single { FileManager(get()) }
@@ -45,5 +44,4 @@ val utilsModule = module {
             init(context = context, tree = tree)
         }
     }
-    single { CameraHelper(get()) }
 }

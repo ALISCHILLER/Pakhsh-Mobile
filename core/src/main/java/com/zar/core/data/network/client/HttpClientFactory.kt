@@ -15,10 +15,7 @@ import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logger
 import io.ktor.client.plugins.logging.Logging
-import io.ktor.client.request.accept
-import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
-import io.ktor.http.contentType
 import io.ktor.http.takeFrom
 import io.ktor.serialization.kotlinx.json.json
 import kotlinx.serialization.json.Json
@@ -58,9 +55,9 @@ object HttpClientFactory {
         }
 
         install(HttpTimeout) {
-            connectTimeoutMillis = config.connectTimeout
-            socketTimeoutMillis = config.socketTimeout
-            requestTimeoutMillis = config.requestTimeout
+            connectTimeoutMillis = config.connectTimeoutMillis
+            socketTimeoutMillis = config.socketTimeoutMillis
+            requestTimeoutMillis = config.requestTimeoutMillis
         }
 
         install(HttpRequestRetry) {
@@ -95,8 +92,10 @@ object HttpClientFactory {
 
         defaultRequest {
             url { takeFrom(config.baseUrl) }
-            accept(ContentType.Application.Json)
-            contentType(ContentType.Application.Json)
+            config.defaultHeaders.forEach { (key, value) ->
+                headers.remove(key)
+                headers.append(key, value)
+            }
             headers.append(HttpHeaders.AcceptLanguage, Locale.getDefault().toLanguageTag())
 
             if (auth == null) {
@@ -108,9 +107,9 @@ object HttpClientFactory {
 
         engine {
             config {
-                connectTimeout(config.connectTimeout, TimeUnit.MILLISECONDS)
-                readTimeout(config.socketTimeout, TimeUnit.MILLISECONDS)
-                writeTimeout(config.requestTimeout, TimeUnit.MILLISECONDS)
+                connectTimeout(config.connectTimeoutMillis, TimeUnit.MILLISECONDS)
+                readTimeout(config.socketTimeoutMillis, TimeUnit.MILLISECONDS)
+                writeTimeout(config.requestTimeoutMillis, TimeUnit.MILLISECONDS)
 
                 if (config.cache.enabled) {
                     cache(Cache(context.cacheDir, config.cache.sizeBytes))

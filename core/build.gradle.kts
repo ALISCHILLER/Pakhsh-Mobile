@@ -1,7 +1,6 @@
 plugins {
     alias(libs.plugins.android.library)
     alias(libs.plugins.kotlin.android)
-    alias(libs.plugins.kotlin.compose)
     alias(dependency.plugins.kotlin.serialization)
     alias(dependency.plugins.ksp)
 }
@@ -34,24 +33,16 @@ android {
         jvmTarget = "11"
     }
     buildFeatures {
-        compose = true
         buildConfig = true
     }
 }
 
 dependencies {
-    // ---- libs (پایه اندروید/کامپوز/تست)
+    // ---- libs (پایه اندروید/تست)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)
     implementation(libs.androidx.lifecycle.runtime.ktx)
-    implementation(libs.androidx.activity.compose)
 
-    implementation(platform(libs.androidx.compose.bom))
-    implementation(libs.androidx.ui)
-    implementation(libs.androidx.ui.graphics)
-    implementation(libs.androidx.ui.tooling.preview)
-    implementation(libs.androidx.material3)
-    androidTestImplementation(platform(libs.androidx.compose.bom))
 
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
@@ -59,14 +50,11 @@ dependencies {
 
     // ---- dependency (دامین/شبکه/DI/DB/…)
     // Koin
-    implementation(dependency.koin.androidx.compose)
+    implementation(dependency.koin.android)
     implementation(dependency.koin.test)
     testImplementation(dependency.koin.android.test)
 
-    // Media3
-    implementation(dependency.media3.exoplayer)
-    implementation(dependency.media3.ui)
-    implementation(dependency.media3.common)
+
 
     // Ktor (BOM + ماژول‌ها)
     implementation(platform(dependency.ktor.bom))
@@ -85,21 +73,13 @@ dependencies {
     implementation(dependency.coroutines.android)
     implementation(dependency.timber.log)
 
-    // Coil v3
-    implementation(dependency.coil.image)
+
 
     // Room + KSP
     implementation(dependency.room.runtime)
     implementation(dependency.room.ktx)
     ksp(dependency.room.compiler)
 
-    // CameraX
-    implementation(dependency.camera.core)
-    implementation(dependency.camera.lifecycle)
-    implementation(dependency.camera.view)
-
-    // Accompanist Permissions
-    implementation(dependency.accompanist.permissions)
 
     // Security: AndroidX + Tink
     implementation(dependency.security.crypto)
