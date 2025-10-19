@@ -31,7 +31,7 @@ dependencyResolutionManagement {
 rootProject.name = "ZarPakhsh-Mobile"
 include(":app")
 include(":core")
-include(":zarPakhsh")
+include(":persistenc")
 include(":visitApp")
 include(":distributeApp")
 include(":supervisorApp")
