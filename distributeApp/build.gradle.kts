@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.zar.distributeApp"
+    namespace = "com.msa.distributeApp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.zar.distributeApp"
+        applicationId = "com.msa.distributeApp"
         minSdk = 27
         targetSdk = 35
         versionCode = 1
@@ -21,7 +21,7 @@ android {
     productFlavors {
         create("distribute") {
             dimension = "appType"
-            applicationId = "com.zar.distributeApp"
+            applicationId = "com.msa.distributeApp"
             buildConfigField("String", "APP_FLAVOR", "\"distribute\"")
         }
 

@@ -5,7 +5,7 @@ plugins {
 }
 
 android {
-    namespace = "com.zar.core.media"
+    namespace = "com.msa.core.media"
     compileSdk = 35
 
     defaultConfig {

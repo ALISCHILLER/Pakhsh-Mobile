@@ -7,7 +7,7 @@ plugins {
 }
 
 android {
-    namespace = "com.zar.persistenc"
+    namespace = "com.msa.persistenc"
     compileSdk = 35
 
 

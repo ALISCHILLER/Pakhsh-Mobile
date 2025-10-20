@@ -7,11 +7,11 @@ plugins {
 }
 
 android {
-    namespace = "com.zar.visitApp"
+    namespace = "com.msa.visitApp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.zar.visitApp"
+        applicationId = "com.msa.visitApp"
         minSdk = 27
         targetSdk = 35
         versionCode = 1
@@ -23,7 +23,7 @@ android {
     productFlavors {
         create("visit") {
             dimension = "appType"
-            applicationId = "com.zar.visitApp"
+            applicationId = "com.msa.visitApp"
             buildConfigField("String", "APP_FLAVOR", "\"visit\"")
         }
     }

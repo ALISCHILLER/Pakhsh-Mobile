@@ -1,6 +1,6 @@
 package com.msa.core.common.result
 
-import com.zar.core.common.paging.PageInfo
+import com.msa.core.common.paging.PageInfo
 
 data class Meta(
     val statusCode: Int? = null,

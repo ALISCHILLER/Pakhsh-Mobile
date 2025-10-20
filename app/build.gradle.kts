@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.zar.zarpakhsh_mobile"
+    namespace = "com.msa.pakhsh_mobile"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.zar.zarpakhsh_mobile"
+        applicationId = "com.msa.pakhsh_mobile"
         minSdk = 27
         targetSdk = 35
         versionCode = 1

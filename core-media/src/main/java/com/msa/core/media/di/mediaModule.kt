@@ -1,6 +1,6 @@
-package com.zar.core.media.di
+package com.msa.core.media.di
 
-import com.zar.core.media.camera.CameraHelper
+import com.msa.core.media.camera.CameraHelper
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module
 

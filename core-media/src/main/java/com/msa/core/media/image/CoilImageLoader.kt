@@ -25,7 +25,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.ui.graphics.painter.Painter
 import coil3.compose.AsyncImagePainter
-import com.zar.core.media.R
+import com.msa.core.media.R
 
 
 /**

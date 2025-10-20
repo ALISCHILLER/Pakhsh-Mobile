@@ -6,7 +6,7 @@ plugins {
 }
 
 android {
-    namespace = "com.zar.core"
+    namespace = "com.msa.core"
     compileSdk = 35
 
     defaultConfig {
