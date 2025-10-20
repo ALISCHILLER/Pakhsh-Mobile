@@ -4,8 +4,7 @@ package com.zar.core.data.network.result
 import android.content.Context
 import com.zar.core.data.network.common.AndroidStringProvider
 import com.zar.core.data.network.common.StringProvider
-import com.zar.core.data.network.error.AppError
-import com.zar.core.data.network.error.UnknownError
+import com.msa.core.common.error.AppError
 import com.zar.core.data.network.error.toAppError
 import com.zar.core.data.network.model.Pagination
 import kotlinx.coroutines.CancellationException
@@ -37,7 +36,7 @@ sealed class NetworkResult<out T>(open val metadata: NetworkMetadata = NetworkMe
                 if (exception is CancellationException) throw exception
                 val strings: StringProvider = AndroidStringProvider(context)
                 val appError = exception.toAppError(strings)
-                if (appError is UnknownError) {
+                if (appError is AppError.Unknown) {
                     Timber.e(exception, "Unhandled exception in network call")
                 }
                 return Error(

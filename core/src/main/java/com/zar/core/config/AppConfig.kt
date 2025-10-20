@@ -1,13 +1,16 @@
 package com.zar.core.config
 
+import com.msa.core.common.config.AppConfig as SharedAppConfig
+
+
 /**
- * Interface برای تنظیمات اپلیکیشن.
- * پیشنهاد: اگر بعداً خواستی baseUrl هم تزریق کنی، اینجا اضافه‌اش کن.
+ * Legacy alias over the shared [SharedAppConfig] contract so existing core code can keep
+ * referring to `appFlavor`/`databaseName` while all modules share a single definition.
  */
-interface AppConfig {
+interface AppConfig : SharedAppConfig {
     val appFlavor: String
-    val sharedPreferencesName: String
+        get() = flavorName
+
     val databaseName: String
-    val signalRUrl: String
-    // val baseUrl: String // (اختیاری) اگر نیاز شد برای Ktor
+        get() = dbName
 }

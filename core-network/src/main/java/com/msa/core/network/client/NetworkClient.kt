@@ -70,7 +70,7 @@ class NetworkClient(
         envelopeHandler: (suspend (HttpResponse) -> ApiResponse<T>)?
     ): Outcome<T> {
         if (!circuitBreaker.allow()) {
-            return Outcome.Fail(AppError.Network(message = "Circuit open", code = null, isConnectivity = true))
+            return Outcome.Fail(AppError.Network(message = "Circuit open", isConnectivity = true))
         }
 
         val url = buildUrl(config.baseUrl, path, query)
@@ -79,15 +79,15 @@ class NetworkClient(
 
         if (config.cachePolicy == CachePolicy.OfflineOnly) {
             return readFromCache<T>(cacheKey, url)?.also { circuitBreaker.onSuccess() }
-                ?: Outcome.Fail(AppError.Network("Offline cache only", null, isConnectivity = true))
+                ?: Outcome.Fail(AppError.Network(message = "Offline cache only", isConnectivity = true))
         }
 
         if (isOffline) {
             return when (config.cachePolicy) {
-                CachePolicy.NoCache -> Outcome.Fail(AppError.Network("Offline", null, isConnectivity = true))
+                CachePolicy.NoCache -> Outcome.Fail(AppError.Network(message = "Offline", isConnectivity = true))
                 CachePolicy.CacheFirst, CachePolicy.NetworkFirst, CachePolicy.OfflineOnly ->
                     readFromCache<T>(cacheKey, url)?.also { circuitBreaker.onSuccess() }
-                        ?: Outcome.Fail(AppError.Network("Offline and cache miss", null, isConnectivity = true))
+                        ?: Outcome.Fail(AppError.Network(message = "Offline and cache miss", isConnectivity = true))
             }
         }
 
@@ -132,7 +132,7 @@ class NetworkClient(
         return when {
             response.status.value == 304 -> {
                 val cached = cacheRepository.read<T>(cacheKey, url)
-                    ?: return Outcome.Fail(AppError.Network("Cache miss on 304", 304, isConnectivity = true))
+                    ?: return Outcome.Fail(AppError.Network(message = "Cache miss on 304", statusCode = 304, isConnectivity = true))
                 circuitBreaker.onSuccess()
                 Outcome.Ok(cached.value, cached.meta.copy(statusCode = 304))
             }

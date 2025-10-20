@@ -2,8 +2,7 @@ package com.zar.core.data.network.client
 
 import com.zar.core.R
 import com.zar.core.data.network.common.StringProvider
-import com.zar.core.data.network.error.ApiError
-import com.zar.core.data.network.error.AppError
+import com.msa.core.common.error.AppError
 import com.zar.core.data.network.error.ErrorMapper
 import com.zar.core.data.network.model.ApiResponse
 import com.zar.core.data.network.result.NetworkMetadata
@@ -274,16 +273,15 @@ class NetworkClient(
         val statusCode = code.takeIf { it != 0 }
         val error: AppError = statusCode?.let {
             errorMapper.fromStatusCode(it, message)
-        } ?: ApiError(
-            errorCode = "api_error",
-            message = message.takeIf { it.isNotBlank() }
+        } ?: AppError.Network(
+            message = message.takeIf { !it.isNullOrBlank() }
                 ?: stringProvider.get(R.string.error_server_generic),
-            statusCode = null,
+            errorCode = "api_error"
         )
         return NetworkResult.Error(
             error = error,
             metadata = metadata.copy(
-                message = error.message.takeIf { it.isNotBlank() } ?: metadata.message
+                message = error.message?.takeIf { it.isNotBlank() } ?: metadata.message
             ),
         )
     }

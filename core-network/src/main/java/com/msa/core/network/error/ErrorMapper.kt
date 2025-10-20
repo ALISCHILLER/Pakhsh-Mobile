@@ -23,21 +23,20 @@ class ErrorMapperImpl(
 ) : ErrorMapper {
 
     override fun fromException(t: Throwable, endpoint: String?): AppError = when (t) {
-        is SocketTimeoutException, is JvmSocketTimeout -> AppError.Network(
-            strings.get(NetworkStringRes.ERR_TIMEOUT),
-            HttpStatusCode.RequestTimeout.value,
-            isTimeout = true,
-            cause = t
+        is SocketTimeoutException, is JvmSocketTimeout -> AppError.Timeout(
+            message = strings.get(NetworkStringRes.ERR_TIMEOUT),
+            errorCode = HttpStatusCode.RequestTimeout.value.toString(),
+            cause = t,
+            endpoint = endpoint
         )
         is IOException -> AppError.Network(
-            strings.get(NetworkStringRes.ERR_NETWORK),
-            null,
+            message = strings.get(NetworkStringRes.ERR_NETWORK),
             isConnectivity = true,
-            cause = t
+            cause = t,
+            endpoint = endpoint
         )
         is ContentConvertException, is SerializationException -> AppError.Parsing(
-            strings.get(NetworkStringRes.ERR_PARSING),
-            raw = null,
+            message = strings.get(NetworkStringRes.ERR_PARSING),
             endpoint = endpoint
         )
         is ResponseException -> {
@@ -47,43 +46,48 @@ class ErrorMapperImpl(
             val body = runCatching { response.bodyAsText() }.getOrNull()
             fromHttp(response.status.value, body, endpointUrl, headerMap)
         }
-        else -> AppError.Unknown(strings.get(NetworkStringRes.ERR_UNKNOWN), t, endpoint)
+        else -> AppError.Unknown(strings.get(NetworkStringRes.ERR_UNKNOWN), cause = t, endpoint = endpoint)
     }
 
     override fun fromHttp(code: Int, body: String?, endpoint: String, headers: Map<String, String>): AppError {
         val requestId = headers.requestId()
         return when (code) {
-            HttpStatusCode.RequestTimeout.value -> AppError.Network(
-                strings.get(NetworkStringRes.ERR_TIMEOUT),
-                code,
-                isTimeout = true
+            HttpStatusCode.RequestTimeout.value -> AppError.Timeout(
+                message = strings.get(NetworkStringRes.ERR_TIMEOUT),
+                errorCode = code.toString(),
+                endpoint = endpoint
             )
             HttpStatusCode.TooManyRequests.value -> AppError.Server(
-                strings.get(NetworkStringRes.ERR_CLIENT),
-                code,
-                body,
-                endpoint,
-                requestId,
-                headers
+                message = strings.get(NetworkStringRes.ERR_CLIENT),
+                statusCode = code,
+                body = body,
+                endpoint = endpoint,
+                requestId = requestId,
+                headers = headers
             )
-            401, 403 -> AppError.Auth(strings.get(NetworkStringRes.ERR_AUTH), "HTTP_$code", endpoint)
+            401, 403 -> AppError.Auth(
+                message = strings.get(NetworkStringRes.ERR_AUTH),
+                reason = "HTTP_$code",
+                endpoint = endpoint
+            )
+
             in 400..499 -> AppError.Server(
-                strings.get(NetworkStringRes.ERR_CLIENT),
-                code,
-                body,
-                endpoint,
-                requestId,
-                headers
+                message = strings.get(NetworkStringRes.ERR_CLIENT),
+                statusCode = code,
+                body = body,
+                endpoint = endpoint,
+                requestId = requestId,
+                headers = headers
             )
             in 500..599 -> AppError.Server(
-                strings.get(NetworkStringRes.ERR_SERVER),
-                code,
-                body,
-                endpoint,
-                requestId,
-                headers
+                message = strings.get(NetworkStringRes.ERR_SERVER),
+                statusCode = code,
+                body = body,
+                endpoint = endpoint,
+                requestId = requestId,
+                headers = headers
             )
-            else -> AppError.Unknown(strings.get(NetworkStringRes.ERR_UNKNOWN), null, endpoint)
+            else -> AppError.Unknown(strings.get(NetworkStringRes.ERR_UNKNOWN), endpoint = endpoint)
         }
     }
 }

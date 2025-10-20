@@ -24,7 +24,7 @@ object AppConfigZar : AppConfig {
     private val role = resolveRole()
     private val env  = resolveEnv()
 
-    override val appFlavor: String
+    override val flavorName: String
         get() = "${role.name.lowercase()}-${env.name.lowercase()}"
 
     override val sharedPreferencesName: String
@@ -35,7 +35,7 @@ object AppConfigZar : AppConfig {
             AppRole.DEFAULT    -> "default_prefs"
         }
 
-    override val databaseName: String
+    override val dbName: String
         get() = when (role) {
             AppRole.VISIT      -> "visit.db"
             AppRole.SUPERVISOR -> "supervisor.db"
@@ -44,11 +44,22 @@ object AppConfigZar : AppConfig {
         }
 
     /** پیشنهاد: baseUrl عمومی برای APIهای REST */
-    val baseUrl: String = when (env) {
+    override val baseUrl: String = when (env) {
         AppEnv.DEV   -> "https://dev.api.zar.com"
         AppEnv.STAGE -> "https://stage.api.zar.com"
         AppEnv.PROD  -> "https://api.zar.com"
     }
+    override val enableLogging: Boolean
+        get() = BuildConfig.DEBUG || env == AppEnv.DEV
+
+    override val appVersion: String
+        get() = BuildConfig.VERSION_NAME
+
+    override val allowCleartextTraffic: Boolean
+        get() = env == AppEnv.DEV
+
+    override val sslPinningEnabled: Boolean
+        get() = env == AppEnv.PROD
 
     override val signalRUrl: String
         get() = when (role) {

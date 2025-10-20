@@ -13,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.zar.distributeApp.ui.theme.ZarPakhshMobileTheme
-import com.zar.zarpakhsh.utils.config.AppConfigZar
+import com.zar.persistenc.utils.config.AppConfigZar
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -27,7 +27,7 @@ class MainActivity : ComponentActivity() {
                         modifier = Modifier.padding(innerPadding)
                     )
                     val appConfig = AppConfigZar
-                    Log.e("MainActivity", "onCreate: ${appConfig.appFlavor}")
+                    Log.e("MainActivity", "onCreate: ${appConfig.flavorName}")
                 }
             }
         }

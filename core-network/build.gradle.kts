@@ -15,4 +15,5 @@ kotlin {
 dependencies {
     api(project(":core-common"))
     implementation(dependency.coroutines.core)
+    implementation(dependency.ktor.core)
 }

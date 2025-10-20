@@ -16,4 +16,5 @@ interface AppConfig {
     val localeTag: String? get() = null
     val allowCleartextTraffic: Boolean get() = false
     val sslPinningEnabled: Boolean get() = false
+    val signalRUrl: String
 }

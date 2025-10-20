@@ -12,7 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.zar.zarpakhsh.utils.config.AppConfigZar
+import com.zar.persistenc.utils.config.AppConfigZar
 import com.zar.visitApp.ui.theme.ZarPakhshMobileTheme
 import org.koin.core.component.inject
 class MainActivity : ComponentActivity() {
@@ -25,7 +25,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
 
                     val appConfig = AppConfigZar
-                    Log.e("MainActivity", "onCreate: ${appConfig.appFlavor}")
+                    Log.e("MainActivity", "onCreate: ${appConfig.flavorName}")
 
 
                 }

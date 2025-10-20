@@ -38,6 +38,8 @@ android {
 }
 
 dependencies {
+
+    implementation(project(":core-common"))
     // ---- libs (پایه اندروید/تست)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.appcompat)

@@ -8,9 +8,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import java.util.concurrent.locks.ReentrantLock
+import kotlin.concurrent.withLock
 
 class InMemorySecureStorage : ObservableKeyValue, TokenStore {
-    private val mutex = Mutex()
+    private val mutex = Mutex() // برای متدهای suspend
+    private val stateLock = ReentrantLock() // برای متدهای غیر-suspend
     private val data = mutableMapOf<String, String>()
     private val observers = mutableMapOf<String, MutableStateFlow<String?>>()
 
@@ -43,8 +46,12 @@ class InMemorySecureStorage : ObservableKeyValue, TokenStore {
         }
     }
 
-    override fun observeString(key: String): Flow<String?> = mutex.withLock {
-        observers.getOrPut(key) { MutableStateFlow(data[key]) }.asStateFlow()
+    override fun observeString(key: String): Flow<String?> {
+        // اینجا دیگه از Mutex استفاده نمی‌کنیم چون تابع suspend نیست
+        val flow = stateLock.withLock {
+            observers.getOrPut(key) { MutableStateFlow(data[key]) }
+        }
+        return flow.asStateFlow()
     }
 
     override suspend fun writeTokens(accessToken: String, refreshToken: String, expiresAtEpochSeconds: Long) {

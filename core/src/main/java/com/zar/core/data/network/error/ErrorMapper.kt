@@ -1,6 +1,6 @@
 package com.zar.core.data.network.error
 
-
+import com.msa.core.common.error.AppError
 import com.zar.core.R
 import com.zar.core.data.network.common.StringProvider
 import com.zar.core.data.network.utils.NetworkStatusMonitor
@@ -25,114 +25,129 @@ class ErrorMapper(private val strings: StringProvider) {
 
         return when (throwable) {
             is HttpRequestTimeoutException,
-            is SocketTimeoutException -> TimeoutError(
+            is SocketTimeoutException -> AppError.Timeout(
+                message = strings.get(R.string.error_timeout),
                 errorCode = "request_timeout",
-                message = strings.get(R.string.error_timeout)
+                cause = throwable
             )
 
             is UnknownHostException,
-            is ConnectException -> ConnectionError(
+            is ConnectException -> AppError.Network(
+                message = strings.get(R.string.error_no_connection),
                 errorCode = "dns_or_connect_error",
-                message = strings.get(R.string.error_no_connection)
+                isConnectivity = true
             )
 
-            is SSLException -> ConnectionError(
+            is SSLException -> AppError.Network(
+                message = strings.get(R.string.error_unknown),
                 errorCode = "ssl_error",
-                message = strings.get(R.string.error_unknown)
+                isConnectivity = true
             )
 
             is RedirectResponseException -> fromStatusCode(throwable.response.status.value)
             is ClientRequestException -> mapClientError(throwable)
             is ServerResponseException -> fromStatusCode(throwable.response.status.value)
             is ResponseException -> fromStatusCode(throwable.response.status.value)
-            is SerializationException -> ParsingError(
-                errorCode = "serialization_error",
-                message = strings.get(R.string.error_parsing)
+            is SerializationException -> AppError.Parsing(
+                message = strings.get(R.string.error_parsing),
+                errorCode = "serialization_error"
             )
 
-            else -> UnknownError(
-                message = strings.get(R.string.error_unknown)
+            else -> AppError.Unknown(
+                message = strings.get(R.string.error_unknown),
+                errorCode = "unknown_error",
+                cause = throwable
             )
         }
     }
-    fun noConnection(connectionType: NetworkStatusMonitor.ConnectionType?): ConnectionError = ConnectionError(
-        errorCode = "network_unavailable",
-        message = strings.get(R.string.error_no_connection),
-        connectionType = connectionType?.name
-    )
 
-    fun emptyBody(): ParsingError = ParsingError(
-        errorCode = "empty_response_body",
-        message = strings.get(R.string.error_parsing)
+    fun noConnection(connectionType: NetworkStatusMonitor.ConnectionType?): AppError.Network =
+        AppError.Network(
+            message = strings.get(R.string.error_no_connection),
+            errorCode = "network_unavailable",
+            isConnectivity = true,
+            connectionType = connectionType?.name
+        )
+
+    fun emptyBody(): AppError.Parsing = AppError.Parsing(
+        message = strings.get(R.string.error_parsing),
+        errorCode = "empty_response_body"
     )
 
     fun fromStatusCode(statusCode: Int, fallbackMessage: String? = null): AppError {
         val msg = fallbackMessage?.takeIf { it.isNotBlank() }
         return when (statusCode) {
-            HttpStatusCode.BadRequest.value -> ApiError(
+            HttpStatusCode.BadRequest.value -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_bad_request),
+                statusCode = statusCode,
                 errorCode = "bad_request",
-                message = strings.get(R.string.error_bad_request),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            HttpStatusCode.Unauthorized.value -> ApiError(
-                errorCode = "unauthorized",
-                message = strings.get(R.string.error_unauthorized),
-                statusCode = statusCode
+            HttpStatusCode.Unauthorized.value -> AppError.Auth(
+                message = msg ?: strings.get(R.string.error_unauthorized),
+                reason = "HTTP_$statusCode"
             )
 
-            HttpStatusCode.Forbidden.value -> ApiError(
-                errorCode = "forbidden",
-                message = strings.get(R.string.error_forbidden),
-                statusCode = statusCode
+            HttpStatusCode.Forbidden.value -> AppError.Auth(
+                message = msg ?: strings.get(R.string.error_forbidden),
+                reason = "HTTP_$statusCode"
             )
 
-            HttpStatusCode.NotFound.value -> ApiError(
+            HttpStatusCode.NotFound.value -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_not_found),
+                statusCode = statusCode,
                 errorCode = "not_found",
-                message = strings.get(R.string.error_not_found),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            HttpStatusCode.Conflict.value -> ApiError(
+            HttpStatusCode.Conflict.value -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_conflict),
+                statusCode = statusCode,
                 errorCode = "conflict",
-                message = strings.get(R.string.error_conflict),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            HttpStatusCode.PayloadTooLarge.value -> ApiError(
+            HttpStatusCode.PayloadTooLarge.value -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_large_download),
+                statusCode = statusCode,
                 errorCode = "payload_too_large",
-                message = strings.get(R.string.error_large_download),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            HttpStatusCode.UnprocessableEntity.value -> ApiError(
+            HttpStatusCode.UnprocessableEntity.value -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_unprocessable),
+                statusCode = statusCode,
                 errorCode = "unprocessable_entity",
-                message = strings.get(R.string.error_unprocessable),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            in 300..399 -> ApiError(
+            in 300..399 -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_redirect, statusCode),
+                statusCode = statusCode,
                 errorCode = "redirect",
-                message = strings.get(R.string.error_redirect, statusCode),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            in 400..499 -> ApiError(
+            in 400..499 -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_client_generic, statusCode),
+                statusCode = statusCode,
                 errorCode = "client_error",
-                message = strings.get(R.string.error_client_generic, statusCode),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            in 500..599 -> ApiError(
+            in 500..599 -> AppError.Server(
+                message = msg ?: strings.get(R.string.error_server_code, statusCode),
+                statusCode = statusCode,
                 errorCode = "server_error",
-                message = strings.get(R.string.error_server_code, statusCode),
-                statusCode = statusCode
+                endpoint = ""
             )
 
-            else -> ApiError(
-                errorCode = statusCode.toString(),
+            else -> AppError.Server(
                 message = msg ?: strings.get(R.string.error_server_generic),
-                statusCode = statusCode
+                statusCode = statusCode,
+                errorCode = statusCode.toString(),
+                endpoint = ""
             )
         }
     }
@@ -150,14 +165,9 @@ class ErrorMapper(private val strings: StringProvider) {
             else -> null
         }
         val message = specific ?: strings.get(R.string.error_client_generic, status.value)
-        return ApiError(
-            errorCode = status.value.toString(),
-            message = message,
-            statusCode = status.value
-        )
+        return fromStatusCode(status.value, message)
     }
 }
 
-/** برای سازگاری با NetworkResult.Error.fromException */
 fun Throwable.toAppError(strings: StringProvider): AppError =
     ErrorMapper(strings).fromThrowable(this)

@@ -1,5 +1,6 @@
 package com.msa.core.di
 
+import com.msa.core.common.config.AppConfig
 import com.msa.core.logging.api.LogContext
 import com.msa.core.logging.api.Logger
 import com.msa.core.logging.impl.FileLogger

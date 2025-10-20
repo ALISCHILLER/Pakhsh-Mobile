@@ -4,37 +4,63 @@ package com.msa.core.common.error
  * Represents a domain friendly error that can be surfaced across layers without
  * leaking transport specific exceptions.
  */
-sealed class AppError(open val message: String?, open val code: Int? = null) {
+sealed class AppError(
+    open val message: String?,
+    open val errorCode: String? = null
+) {
     data class Network(
         override val message: String?,
-        override val code: Int?,
-        val cause: Throwable? = null
-    ) : AppError(message, code)
+        override val errorCode: String? = null,
+        val statusCode: Int? = null,
+        val isConnectivity: Boolean = false,
+        val connectionType: String? = null,
+        val cause: Throwable? = null,
+        val endpoint: String? = null
+    ) : AppError(message, errorCode)
+
+    data class Timeout(
+        override val message: String?,
+        override val errorCode: String? = null,
+        val durationMillis: Long? = null,
+        val cause: Throwable? = null,
+        val endpoint: String? = null
+    ) : AppError(message, errorCode)
 
     data class Server(
         override val message: String?,
-        override val code: Int,
+        val statusCode: Int,
+        override val errorCode: String? = statusCode.toString(),
         val body: String? = null,
-        val endpoint: String
-    ) : AppError(message, code)
+        val endpoint: String = "",
+        val requestId: String? = null,
+        val headers: Map<String, String> = emptyMap()
+    ) : AppError(message, errorCode)
 
     data class Auth(
         override val message: String?,
-        val reason: String? = null
-    ) : AppError(message)
+        val reason: String? = null,
+        val endpoint: String? = null,
+        override val errorCode: String? = reason
+    ) : AppError(message, errorCode)
 
     data class Parsing(
         override val message: String?,
-        val raw: String?
-    ) : AppError(message)
+        val raw: String? = null,
+        val endpoint: String? = null,
+        override val errorCode: String? = null
+    ) : AppError(message, errorCode)
 
     data class Business(
         override val message: String?,
-        val businessCode: String? = null
-    ) : AppError(message)
+        val payload: Any? = null,
+        val businessCode: String? = null,
+        override val errorCode: String? = businessCode
+    ) : AppError(message, errorCode)
 
     data class Unknown(
         override val message: String?,
-        val cause: Throwable?
-    ) : AppError(message)
+        override val errorCode: String? = null,
+        val cause: Throwable? = null,
+        val endpoint: String? = null
+    ) : AppError(message, errorCode)
 }

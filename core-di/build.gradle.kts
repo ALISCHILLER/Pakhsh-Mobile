@@ -18,4 +18,5 @@ dependencies {
     implementation(project(":core-network"))
     implementation(project(":core-storage"))
     implementation(dependency.koin.core)
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.10.2")
 }

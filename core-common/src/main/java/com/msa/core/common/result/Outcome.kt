@@ -1,6 +1,6 @@
 package com.msa.core.common.result
 
-import com.zar.core.common.error.AppError
+import com.msa.core.common.error.AppError
 
 sealed interface Outcome<out V> {
     data class Ok<V>(val value: V, val meta: Meta = Meta()) : Outcome<V>

@@ -2,8 +2,7 @@ package com.zar.core.base
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.zar.core.data.network.error.AppError
-import com.zar.core.data.network.error.UnknownError
+import com.msa.core.common.error.AppError
 import com.zar.core.data.network.result.NetworkMetadata
 import com.zar.core.data.network.result.NetworkResult
 import kotlinx.coroutines.CoroutineScope
@@ -59,7 +58,7 @@ abstract class BaseViewModel : ViewModel() {
      */
     protected fun setError(errorMessage: String? = null) {
         _uiState.value = UIState.Error(
-            UnknownError(message = errorMessage ?: "An unknown error occurred"),
+            AppError.Unknown(message = errorMessage ?: "An unknown error occurred"),
         )
     }
 
