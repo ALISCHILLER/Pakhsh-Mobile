@@ -9,6 +9,8 @@ import java.util.concurrent.atomic.AtomicReference
  * - پشتیبانی از ورودی با اعداد فارسی/عربی و حذف جداکننده‌ها/فاصله‌ها
  * - پذیرش قالب‌های دارای کد کشور (+98 / 0098 / 98) و تبدیل به فرم داخلی 11 رقمی (09xxxxxxxxx)
  * - بررسی طول، الگوی کلی، و پیش‌شماره‌های معتبر
+ *  * - ارایه نتیجه‌ی ساخت‌یافته (موفق/ناموفق) همراه با فرمت بین‌المللی E164
+ *  * - قابلیت بازنشانی پیش‌شماره‌ها به مقدار پیش‌فرض
  */
 object MobileNumberValidator {
 
@@ -28,12 +30,72 @@ object MobileNumberValidator {
             prefixStore.set(sanitized)
         }
     }
+    fun resetPrefixesToDefault() {
+        prefixStore.set(defaultPrefixes)
+    }
 
     fun currentPrefixes(): Set<String> = prefixStore.get()
 
 
     // الگوی شماره داخلی استاندارد ایران: 11 رقم، شروع با 09
     private val iranLocalRegex = Regex("^09\\d{9}$")
+
+
+    sealed class MobileValidationResult {
+        data class Success(val normalized: String) : MobileValidationResult() {
+            val international: String get() = "+98" + normalized.removePrefix("0")
+        }
+
+        data class Failure(val error: Error) : MobileValidationResult() {
+            enum class Error(val message: String) {
+                EMPTY_INPUT("شماره موبایل نباید خالی باشد."),
+                INVALID_LENGTH("طول شماره موبایل باید ۱۱ رقم باشد (فرم صحیح: 09xxxxxxxxx)."),
+                MISSING_LEADING_ZERO("شماره موبایل باید با ۰ شروع شود."),
+                INVALID_PREFIX("پیش‌شماره نامعتبر است."),
+                INVALID_FORMAT("قالب شماره موبایل نامعتبر است.")
+            }
+        }
+
+        val isSuccess: Boolean get() = this is Success
+    }
+
+    fun validate(mobileNumber: String?): MobileValidationResult {
+        if (mobileNumber.isNullOrBlank()) {
+            return MobileValidationResult.Failure(MobileValidationResult.Failure.Error.EMPTY_INPUT)
+        }
+
+        val trimmed = mobileNumber.trim()
+        val digitsOnly = mapToWesternDigits(mobileNumber).filter { it.isDigit() }
+        val normalized = normalizeToLocal(mobileNumber)
+
+        if (normalized == null) {
+            val error = when {
+                digitsOnly.isEmpty() -> MobileValidationResult.Failure.Error.INVALID_FORMAT
+                digitsOnly.length != 11 && !trimmed.startsWith("+98") &&
+                        !digitsOnly.startsWith("0098") && !digitsOnly.startsWith("98") ->
+                    MobileValidationResult.Failure.Error.INVALID_LENGTH
+                digitsOnly.firstOrNull()?.let { it != '0' } == true &&
+                        !trimmed.startsWith("+98") && !digitsOnly.startsWith("0098") && !digitsOnly.startsWith("98") ->
+                    MobileValidationResult.Failure.Error.MISSING_LEADING_ZERO
+                else -> MobileValidationResult.Failure.Error.INVALID_FORMAT
+            }
+            return MobileValidationResult.Failure(error)
+        }
+
+        if (normalized.length != 11) {
+            return MobileValidationResult.Failure(MobileValidationResult.Failure.Error.INVALID_LENGTH)
+        }
+        if (!iranLocalRegex.matches(normalized)) {
+            return MobileValidationResult.Failure(MobileValidationResult.Failure.Error.INVALID_FORMAT)
+        }
+        if (normalized.take(4) !in currentPrefixes()) {
+            return MobileValidationResult.Failure(MobileValidationResult.Failure.Error.INVALID_PREFIX)
+        }
+
+        return MobileValidationResult.Success(normalized)
+    }
+
+
 
     /**
      * تلاش برای نرمال‌سازی ورودی به قالب داخلی (09xxxxxxxxx).
@@ -62,32 +124,22 @@ object MobileNumberValidator {
     /**
      * چک ساده‌ی اعتبار: true/false.
      */
-    fun isValid(mobileNumber: String): Boolean {
-        val local = normalizeToLocal(mobileNumber) ?: return false
-        return local.take(4) in currentPrefixes()
-    }
+    fun isValid(mobileNumber: String): Boolean = validate(mobileNumber).isSuccess
+
+    fun formatToE164(mobileNumber: String): String? =
+        when (val result = validate(mobileNumber)) {
+            is MobileValidationResult.Success -> result.international
+            is MobileValidationResult.Failure -> null
+        }
 
     /**
      * اعتبارسنجی با برگرداندن پیام خطا (null یعنی معتبر).
      */
     fun validateAndGetErrorMessage(mobileNumber: String): String? {
-        if (mobileNumber.isBlank()) return "شماره موبایل نباید خالی باشد."
-
-        val local = normalizeToLocal(mobileNumber)
-            ?: return when {
-                // تلاش برای تشخیص سریع‌تر خطا
-                mapToWesternDigits(mobileNumber).filter { it.isDigit() }.length != 11 ->
-                    "طول شماره موبایل باید ۱۱ رقم باشد (یا با کد کشور ایران وارد نکنید)."
-                !mapToWesternDigits(mobileNumber).contains('0') ->
-                    "شماره موبایل باید با ۰ شروع شود."
-                else -> "قالب شماره موبایل نامعتبر است."
-            }
-
-        if (local.length != 11) return "طول شماره موبایل باید ۱۱ رقم باشد."
-        if (!iranLocalRegex.matches(local)) return "قالب شماره موبایل نامعتبر است."
-        if (local.take(4) !in currentPrefixes()) return "پیش‌شماره نامعتبر است."
-
-        return null
+        return when (val result = validate(mobileNumber)) {
+            is MobileValidationResult.Success -> null
+            is MobileValidationResult.Failure -> result.error.message
+        }
     }
 
     // ---------- ابزارهای داخلی ----------
