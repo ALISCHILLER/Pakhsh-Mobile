@@ -62,6 +62,7 @@ fun <T> SwipeToDismissListItem(
     )
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Composable
 private fun DefaultSwipeBackground(state: DismissState) {
     val targetColor = when (state.targetValue) {
@@ -95,6 +96,7 @@ private fun DefaultSwipeBackground(state: DismissState) {
     }
 }
 
+@OptIn(ExperimentalMaterialApi::class)
 @Preview
 @Composable
 private fun SwipeToDismissListItemPreview() {
