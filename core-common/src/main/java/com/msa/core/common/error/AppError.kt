@@ -36,6 +36,16 @@ sealed class AppError(
         val headers: Map<String, String> = emptyMap()
     ) : AppError(message, errorCode)
 
+    data class RateLimited(
+        override val message: String?,
+        val statusCode: Int,
+        val retryAfterSeconds: Long? = null,
+        val retryAfterRaw: String? = null,
+        val endpoint: String? = null,
+        val headers: Map<String, String> = emptyMap(),
+        override val errorCode: String? = statusCode.toString()
+    ) : AppError(message, errorCode)
+
     data class Auth(
         override val message: String?,
         val reason: String? = null,

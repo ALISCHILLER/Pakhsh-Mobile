@@ -54,6 +54,7 @@ class NetworkClient(
                 attemptedRetries = attemptedRetries,
                 maxRetries = maxRetries,
                 message = appError.message,
+                retryAfterSeconds = appError.rateLimitSeconds(),
             ),
         )
     }
@@ -119,14 +120,17 @@ class NetworkClient(
                 )
             } else {
                 val error = errorMapper.fromStatusCode(
-                    response.status.value,
-                    response.status.description,
+                    statusCode = response.status.value,
+                    fallbackMessage = response.status.description,
+                    headers = response.headers,
+                    endpoint = url,
                 )
                 NetworkResult.Error(
                     error = error,
                     metadata = NetworkMetadata(
                         statusCode = response.status.value,
                         message = error.message,
+                        retryAfterSeconds = error.rateLimitSeconds(),
                     ),
                 )
             }
@@ -138,7 +142,10 @@ class NetworkClient(
             NetworkResult.Error(
                 error = error,
                 cause = throwable,
-                metadata = NetworkMetadata(message = error.message),
+                metadata = NetworkMetadata(
+                    message = error.message,
+                    retryAfterSeconds = error.rateLimitSeconds(),
+                ),
             )
         }
     }
@@ -207,7 +214,10 @@ class NetworkClient(
             NetworkResult.Error(
                 error = error,
                 cause = throwable,
-                metadata = NetworkMetadata(message = error.message),
+                metadata = NetworkMetadata(
+                    message = error.message,
+                    retryAfterSeconds = error.rateLimitSeconds(),
+                ),
             )
         }
     }
@@ -231,7 +241,10 @@ class NetworkClient(
             NetworkResult.Error(
                 error = error,
                 cause = throwable,
-                metadata = NetworkMetadata(message = error.message),
+                metadata = NetworkMetadata(
+                    message = error.message,
+                    retryAfterSeconds = error.rateLimitSeconds(),
+                ),
             )
         }
     }
@@ -249,7 +262,10 @@ class NetworkClient(
                 val error = errorMapper.noConnection(lastKnownConnectionType)
                 NetworkResult.Error(
                     error = error,
-                    metadata = NetworkMetadata(message = error.message),
+                    metadata = NetworkMetadata(
+                        message = error.message,
+                        retryAfterSeconds = error.rateLimitSeconds(),
+                    ),
                 )
             }
         }
@@ -281,7 +297,8 @@ class NetworkClient(
         return NetworkResult.Error(
             error = error,
             metadata = metadata.copy(
-                message = error.message?.takeIf { it.isNotBlank() } ?: metadata.message
+                message = error.message?.takeIf { it.isNotBlank() } ?: metadata.message,
+                retryAfterSeconds = error.rateLimitSeconds() ?: metadata.retryAfterSeconds,
             ),
         )
     }
@@ -292,4 +309,6 @@ class NetworkClient(
         message = message.takeIf { it.isNotBlank() },
         pagination = pagination,
     )
+    private fun AppError.rateLimitSeconds(): Long? =
+        (this as? AppError.RateLimited)?.retryAfterSeconds
 }

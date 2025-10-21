@@ -46,6 +46,7 @@ sealed class NetworkResult<out T>(open val metadata: NetworkMetadata = NetworkMe
                         attemptedRetries = attemptedRetries,
                         maxRetries = maxRetries,
                         message = appError.message,
+                        retryAfterSeconds = (appError as? AppError.RateLimited)?.retryAfterSeconds,
                     ),
                 )
             }

@@ -12,4 +12,5 @@ data class NetworkMetadata(
     val pagination: Pagination? = null,
     val attemptedRetries: Int = 0,
     val maxRetries: Int = 0,
+    val retryAfterSeconds: Long? = null,
 )

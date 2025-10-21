@@ -14,6 +14,8 @@
     <string name="error_not_found">موردی یافت نشد</string>
     <string name="error_conflict">تعارض در داده‌ها</string>
     <string name="error_unprocessable">امکان پردازش داده‌ها نیست</string>
+    <string name="error_too_many_requests">تعداد درخواست‌ها زیاد است. لطفاً کمی بعد دوباره تلاش کنید.</string>
+    <string name="error_too_many_requests_retry">لطفاً %1$d ثانیه دیگر دوباره تلاش کنید.</string>
     <string name="error_client_generic">خطای سمت کاربر (کد: %1$d)</string>
     <string name="error_validation_failed">اعتبارسنجی شکست خورد</string>
     <string name="error_request_cancelled">درخواست کنسل شد</string>
