@@ -13,7 +13,7 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 import kotlin.concurrent.withLock
 import java.util.concurrent.locks.ReentrantLock
-
+import kotlin.collections.ArrayDeque
 /**
  * Lightweight JSON-line logger implementation that writes to rotating files.
  */
@@ -66,6 +66,25 @@ class FileLogger(
         }
         zipFile
     }
+    fun readRecentLines(maxLines: Int = 200): List<String> = lock.withLock {
+        if (maxLines <= 0) return@withLock emptyList()
+        val buffer = ArrayDeque<String>(maxLines)
+        activeLogFiles()
+            .sortedBy(File::lastModified)
+            .forEach { file ->
+                if (!file.exists()) return@forEach
+                file.bufferedReader(charset).useLines { sequence ->
+                    sequence.forEach { line ->
+                        if (buffer.size == maxLines) {
+                            buffer.removeFirst()
+                        }
+                        buffer.addLast(line)
+                    }
+                }
+            }
+        buffer.toList()
+    }
+
 
     private fun writeEntry(entry: String) {
         val current = currentFile()

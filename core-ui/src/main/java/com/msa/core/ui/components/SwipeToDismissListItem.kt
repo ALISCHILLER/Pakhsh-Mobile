@@ -20,6 +20,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
@@ -37,16 +38,36 @@ fun <T> SwipeToDismissListItem(
     directions: Set<DismissDirection> = setOf(DismissDirection.EndToStart),
     thresholdFraction: Float = 0.35f,
     background: @Composable (DismissState) -> Unit = { DefaultSwipeBackground(it) },
-    content: @Composable (T) -> Unit
+    enabled: Boolean = true,
+    confirmValueChange: (DismissValue, T) -> Boolean = { value, _ ->
+        value == DismissValue.DismissedToEnd || value == DismissValue.DismissedToStart
+    },
+    onStateChange: (DismissState) -> Unit = {},
+    content: @Composable (T) -> Unit,
 ) {
-    val dismissState = rememberDismissState(confirmValueChange = { value ->
-        if (value == DismissValue.DismissedToEnd || value == DismissValue.DismissedToStart) {
-            onDismiss(item)
-            true
-        } else {
-            false
+    if (!enabled) {
+        Card(modifier = modifier.fillMaxWidth()) {
+            content(item)
         }
-    })
+        return
+    }
+
+    val dismissState = rememberDismissState(
+        // ❗️اصلاح: نام پارامتر درست در متریال 1.x
+        confirmStateChange = { value ->
+            if (confirmValueChange(value, item)) {
+                onDismiss(item)
+                true
+            } else {
+                false
+            }
+        }
+    )
+
+    // در صورت تغییر مقدار جاری (Default/…/Dismissed) کال‌بک بیرونی را با خود state صدا می‌زنیم
+    LaunchedEffect(dismissState.currentValue) {
+        onStateChange(dismissState)
+    }
 
     SwipeToDismiss(
         state = dismissState,
@@ -85,10 +106,13 @@ private fun DefaultSwipeBackground(state: DismissState) {
             .padding(horizontal = 24.dp, vertical = 12.dp),
         contentAlignment = alignment
     ) {
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             Icon(
                 imageVector = Icons.Default.Delete,
-                contentDescription = null,
+                contentDescription = "حذف",
                 tint = contentColor
             )
             Text(text = "حذف", color = contentColor)
@@ -100,7 +124,11 @@ private fun DefaultSwipeBackground(state: DismissState) {
 @Preview
 @Composable
 private fun SwipeToDismissListItemPreview() {
-    SwipeToDismissListItem(item = "Sample", onDismiss = {}) { value ->
+    SwipeToDismissListItem(
+        item = "Sample",
+        // ❗️اصلاح: پارامتر آیتم را بپذیرید (می‌توانید نادیده‌اش بگیرید)
+        onDismiss = { _ -> }
+    ) { value ->
         Text(text = value, modifier = Modifier.padding(24.dp))
     }
 }

@@ -1,8 +1,8 @@
 package com.msa.core.storage.impl
 
 import com.msa.core.storage.api.ObservableKeyValue
+import com.msa.core.storage.api.ObservableTokenStore
 import com.msa.core.storage.api.TokenSnapshot
-import com.msa.core.storage.api.TokenStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -11,11 +11,12 @@ import kotlinx.coroutines.sync.withLock
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 
-class InMemorySecureStorage : ObservableKeyValue, TokenStore {
+class InMemorySecureStorage : ObservableKeyValue, ObservableTokenStore {
     private val mutex = Mutex() // برای متدهای suspend
     private val stateLock = ReentrantLock() // برای متدهای غیر-suspend
     private val data = mutableMapOf<String, String>()
     private val observers = mutableMapOf<String, MutableStateFlow<String?>>()
+    private val tokenFlow = MutableStateFlow<TokenSnapshot?>(null)
 
     override suspend fun putString(key: String, value: String) {
         mutex.withLock {
@@ -36,6 +37,9 @@ class InMemorySecureStorage : ObservableKeyValue, TokenStore {
         mutex.withLock {
             data.remove(key)
             observers[key]?.value = null
+            if (key in TOKEN_KEYS) {
+                tokenFlow.value = readSnapshotLocked()
+            }
         }
     }
 
@@ -43,6 +47,7 @@ class InMemorySecureStorage : ObservableKeyValue, TokenStore {
         mutex.withLock {
             data.clear()
             observers.values.forEach { it.value = null }
+            tokenFlow.value = null
         }
     }
 
@@ -55,29 +60,48 @@ class InMemorySecureStorage : ObservableKeyValue, TokenStore {
     }
 
     override suspend fun writeTokens(accessToken: String, refreshToken: String, expiresAtEpochSeconds: Long) {
-        putString(KEY_ACCESS, accessToken)
-        putString(KEY_REFRESH, refreshToken)
-        putLong(KEY_EXPIRES, expiresAtEpochSeconds)
+        mutex.withLock {
+            data[KEY_ACCESS] = accessToken
+            data[KEY_REFRESH] = refreshToken
+            data[KEY_EXPIRES] = expiresAtEpochSeconds.toString()
+            observers[KEY_ACCESS]?.value = accessToken
+            observers[KEY_REFRESH]?.value = refreshToken
+            observers[KEY_EXPIRES]?.value = expiresAtEpochSeconds.toString()
+            tokenFlow.value = TokenSnapshot(accessToken, refreshToken, expiresAtEpochSeconds)
+        }
     }
 
     override suspend fun readTokens(): TokenSnapshot? {
-        val access = getString(KEY_ACCESS)
-        val refresh = getString(KEY_REFRESH)
-        val expires = getLong(KEY_EXPIRES)
-        return if (access != null && refresh != null && expires != null) {
-            TokenSnapshot(access, refresh, expires)
-        } else null
+        return mutex.withLock { readSnapshotLocked() }
     }
 
     override suspend fun clearTokens() {
-        remove(KEY_ACCESS)
-        remove(KEY_REFRESH)
-        remove(KEY_EXPIRES)
+        mutex.withLock {
+            data.remove(KEY_ACCESS)
+            data.remove(KEY_REFRESH)
+            data.remove(KEY_EXPIRES)
+            observers[KEY_ACCESS]?.value = null
+            observers[KEY_REFRESH]?.value = null
+            observers[KEY_EXPIRES]?.value = null
+            tokenFlow.value = null
+        }
     }
-
+    override val tokens: Flow<TokenSnapshot?> = tokenFlow.asStateFlow()
     companion object {
         private const val KEY_ACCESS = "auth.access"
         private const val KEY_REFRESH = "auth.refresh"
         private const val KEY_EXPIRES = "auth.expiresAt"
+        private val TOKEN_KEYS = setOf(KEY_ACCESS, KEY_REFRESH, KEY_EXPIRES)
+    }
+
+    private fun readSnapshotLocked(): TokenSnapshot? {
+        val access = data[KEY_ACCESS]
+        val refresh = data[KEY_REFRESH]
+        val expires = data[KEY_EXPIRES]?.toLongOrNull()
+        return if (access != null && refresh != null && expires != null) {
+            TokenSnapshot(access, refresh, expires)
+        } else {
+            null
+        }
     }
 }

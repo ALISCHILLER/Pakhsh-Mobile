@@ -14,4 +14,5 @@ kotlin {
 
 dependencies {
     api(kotlin("stdlib"))
+    api(dependency.coroutines.core)
 }

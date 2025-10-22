@@ -1,5 +1,9 @@
 package com.msa.core.di
 
+
+import com.msa.core.common.coroutines.CoroutineDispatchers
+import com.msa.core.common.coroutines.DefaultCoroutineDispatchers
+import com.msa.core.common.time.Clock
 import com.msa.core.data.network.client.HttpClientFactory
 import com.msa.core.data.network.client.NetworkClient
 import com.msa.core.data.network.common.AndroidStringProvider
@@ -24,6 +28,9 @@ val coreModule = module {
     // نگاشت خطاها (به StringProvider نیاز دارد)
     single { ErrorMapper(get()) }
 
+
+    single<CoroutineDispatchers> { DefaultCoroutineDispatchers() }
+    single { Clock.System }
     // مانیتور وضعیت شبکه — از applicationContext استفاده کن تا لیک نشه
     single { NetworkStatusMonitor(androidContext().applicationContext) }
 
@@ -37,7 +44,8 @@ val coreModule = module {
             statusMonitor = get(),       // NetworkStatusMonitor
             stringProvider = get(),      // StringProvider
             errorMapper = get(),         // ErrorMapper
-            // dispatcher اختیاری است (دیفالت IO داخل کلاس)
+            dispatchers = get(),
+            clock = get(),
         )
     }
 }

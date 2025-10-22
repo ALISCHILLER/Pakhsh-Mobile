@@ -13,4 +13,11 @@ data class NetworkMetadata(
     val attemptedRetries: Int = 0,
     val maxRetries: Int = 0,
     val retryAfterSeconds: Long? = null,
+    val durationMillis: Long? = null,
+    val headers: Map<String, String>? = null,
+    val endpoint: String? = null,
+    val method: String? = null,
+    val requestId: String? = null,
+    val receivedAtMillis: Long? = null,
+    val connectionType: String? = null,
 )

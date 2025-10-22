@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.layout.ContentScale
@@ -41,7 +42,8 @@ fun CoilImageLoader(
     placeholder: Painter? = null, // تصویر جایگزین قبل از بارگذاری
     error: Painter? = null, // تصویر جایگزین در صورت خطا
     contentScale: ContentScale = ContentScale.Crop, // مقیاس محتوا
-    size: Dp? = null // اندازه پیش‌فرض تصویر
+    size: Dp? = null, // اندازه پیش‌فرض تصویر
+    onStateChange: (AsyncImagePainter.State) -> Unit = {},
 ) {
     // تعیین منبع تصویر (URL یا Resource ID)
     val imageModel = when {
@@ -66,11 +68,17 @@ fun CoilImageLoader(
     )
 
     // دریافت آخرین مقدار از StateFlow (اگر وجود داشته باشد)
-    val currentState = stateFlow?.collectAsState()?.value ?: painter.state
+    val currentState = stateFlow?.collectAsState(initial = painter.state)?.value ?: painter.state
+
+    LaunchedEffect(currentState) {
+        onStateChange(currentState)
+    }
+
+    val sizedModifier = size?.let { modifier.size(it) } ?: modifier
 
     Box(
-        modifier = modifier
-            .then(size?.let { Modifier.size(it) } ?: Modifier.size(100.dp)), // استفاده از اندازه ورودی یا پیش‌فرض
+        modifier = sizedModifier
+            .defaultMinSize(minWidth = 48.dp, minHeight = 48.dp),
         contentAlignment = Alignment.Center
     ) {
         when (currentState) {

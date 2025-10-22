@@ -1,8 +1,11 @@
 package com.msa.core.base
 
+
+
+import com.msa.core.common.coroutines.CoroutineDispatchers
+import com.msa.core.common.coroutines.DefaultCoroutineDispatchers
 import com.msa.core.data.network.client.NetworkClient
 import com.msa.core.data.network.result.NetworkResult
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.conflate
@@ -13,6 +16,7 @@ import timber.log.Timber
 
 open class BaseRepository(
     protected val networkClient: NetworkClient,
+    private val dispatchers: CoroutineDispatchers = DefaultCoroutineDispatchers(),
 ) {
 
     @PublishedApi
@@ -27,7 +31,7 @@ open class BaseRepository(
         }.catch { e ->
             Timber.e(e, "Error during network flow call")
             emit(networkClient.asError(e))
-        }.flowOn(Dispatchers.IO)
+        }.flowOn(dispatchers.io)
             .conflate()
 
     // ---------- Suspend wrappers ----------
