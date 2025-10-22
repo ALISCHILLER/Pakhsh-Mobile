@@ -58,7 +58,7 @@ dependencies {
     implementation(dependency.camera.view)
 
     implementation(dependency.coroutines.android)
-
+    implementation(dependency.koin.android)
     debugImplementation(libs.androidx.ui.tooling)
 
     testImplementation(libs.junit)

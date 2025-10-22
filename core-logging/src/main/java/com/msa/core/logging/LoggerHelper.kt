@@ -73,9 +73,7 @@ class LoggerHelper(
         if (file.exists() && file.length() + line.length > maxFileSizeBytes) {
             rotate(file)
         }
-        file.outputStream().bufferedWriter(StandardCharsets.UTF_8, line.length + 1).use { writer ->
-            writer.appendLine(line)
-        }
+        file.appendText("$line\n", StandardCharsets.UTF_8)
     }
 
     private fun rotate(current: File) {

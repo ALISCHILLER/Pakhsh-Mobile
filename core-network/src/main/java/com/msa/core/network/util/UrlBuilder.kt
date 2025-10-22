@@ -12,5 +12,5 @@ fun buildUrl(base: String, path: String, query: Map<String, Any?>): String {
     query.filterValues { it != null }.forEach { (key, value) ->
         builder.parameters.append(key, value.toString())
     }
-    return builder.buildString()
+    return builder.build().toString()
 }

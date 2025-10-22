@@ -20,7 +20,6 @@ import io.ktor.client.request.url
 import io.ktor.http.ContentType
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
-import io.ktor.http.buildString
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.AttributeKey
@@ -96,7 +95,7 @@ object HttpClientFactory {
             if (tokenStore != null && authOrchestrator != null) {
                 install(HttpSend) {
                     intercept { request ->
-                        val requestUrl = request.url.buildString()
+                        val requestUrl = request.url.build().toString()
                         val shouldAttach = authOrchestrator.shouldAttach(requestUrl)
                         if (shouldAttach) {
                             tokenStore.accessToken()?.let { access ->
