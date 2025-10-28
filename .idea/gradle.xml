@@ -22,7 +22,7 @@
             <option value="$PROJECT_DIR$/core-ui" />
             <option value="$PROJECT_DIR$/core-validation" />
             <option value="$PROJECT_DIR$/distributeApp" />
-            <option value="$PROJECT_DIR$/persistenc" />
+            <option value="$PROJECT_DIR$/persistence" />
             <option value="$PROJECT_DIR$/supervisorApp" />
             <option value="$PROJECT_DIR$/visitApp" />
           </set>

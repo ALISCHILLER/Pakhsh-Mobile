@@ -12,21 +12,20 @@ class TokenStoreEncrypted(
         const val KEY_REFRESH = "token_refresh"
     }
 
-    override suspend fun accessToken(): String? = preferences.getString(KEY_ACCESS)
+    override suspend fun accessToken(): String? = preferences.getStringOrNull(KEY_ACCESS)
 
-    override suspend fun refreshToken(): String? = preferences.getString(KEY_REFRESH)
+    override suspend fun refreshToken(): String? = preferences.getStringOrNull(KEY_REFRESH)
 
     override suspend fun updateTokens(access: String, refresh: String?) {
-        preferences.putString(KEY_ACCESS, access)
+        preferences.saveString(KEY_ACCESS, access, commit = true)
         if (refresh != null) {
-            preferences.putString(KEY_REFRESH, refresh)
+            preferences.saveString(KEY_REFRESH, refresh, commit = true)
         } else {
-            preferences.remove(KEY_REFRESH)
+            preferences.removeKey(KEY_REFRESH, commit = true)
         }
     }
 
     override suspend fun clear() {
-        preferences.remove(KEY_ACCESS)
-        preferences.remove(KEY_REFRESH)
+        preferences.removeKeys(KEY_ACCESS, KEY_REFRESH, commit = true)
     }
 }

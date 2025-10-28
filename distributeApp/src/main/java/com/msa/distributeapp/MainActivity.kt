@@ -12,22 +12,23 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.msa.distributeApp.ui.theme.msaPakhshMobileTheme
-import com.msa.persistenc.utils.config.AppConfigmsa
+import com.msa.core.common.config.AppConfig
+import com.msa.core.ui.theme.PakhshTheme
+import org.koin.androidx.compose.get
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
-            msaPakhshMobileTheme {
+            PakhshTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     Greeting(
                         name = "Android",
                         modifier = Modifier.padding(innerPadding)
                     )
-                    val appConfig = AppConfigmsa
-                    Log.e("MainActivity", "onCreate: ${appConfig.flavorName}")
+                    val appConfig = get<AppConfig>()
+                    Log.e("MainActivity", "onCreate: ${appConfig.flavorName} -> ${appConfig.baseUrl}")
                 }
             }
         }
@@ -45,7 +46,7 @@ fun Greeting(name: String, modifier: Modifier = Modifier) {
 @Preview(showBackground = true)
 @Composable
 fun GreetingPreview() {
-    msaPakhshMobileTheme {
+    PakhshTheme  {
         Greeting("Android")
     }
 }

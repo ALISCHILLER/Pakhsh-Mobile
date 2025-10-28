@@ -15,7 +15,7 @@
 - Define a domain-level `User` entity (and associated mapper) so `AuthRepository` compiles; the interface currently references an undefined type. Fill in `LoginUseCase`/`AuthRepositoryImpl` to return meaningful results instead of stubs.【F:msaPakhsh/src/main/java/com/msa/msapakhsh/domain/repository/AuthRepository.kt†L1-L12】
 - In `PokemonRepositoryImpl`, consider persisting or caching the response via Room to enable offline mode, and surface errors through a unified mapper to keep the UI layer slim.【F:msaPakhsh/src/main/java/com/msa/msapakhsh/data/repository/PokemonRepositoryImpl.kt†L1-L32】
 
-## Persistence Layer Corrections
+## persistence Layer Corrections
 - Add proper primary keys and indices to `ProductGroupEntity` and `ProductUnitEntity`. Without `@PrimaryKey` annotations Room will refuse to create the tables. Align DAO queries with the declared table names (e.g., either rename the table to `products` or update queries to `SELECT * FROM "Products"`).【F:msaPakhsh/src/main/java/com/msa/msapakhsh/data/local/entity/ProductGroupEntity.kt†L1-L16】【F:msaPakhsh/src/main/java/com/msa/msapakhsh/data/local/entity/ProductUnitEntity.kt†L1-L16】【F:msaPakhsh/src/main/java/com/msa/msapakhsh/data/local/entity/ProductEntity.kt†L1-L21】【F:msaPakhsh/src/main/java/com/msa/msapakhsh/data/local/dao/ProductDao.kt†L1-L34】
 - Replace `fallbackToDestructiveMigration()` in `BaseDatabase` with explicit migration paths (or make it opt-in) to protect production data from unintended wipes during upgrades.【F:core/src/main/java/com/msa/core/data/database/BaseDatabase.kt†L1-L39】
 

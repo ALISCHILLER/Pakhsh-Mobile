@@ -72,7 +72,7 @@ dependencies {
 
     // --- ماژول‌ها ---
     implementation(project(":core"))
-    implementation(project(":persistenc"))
+    implementation(project(":persistence"))
 
     // --- Koin (از dependency) ---
     implementation(dependency.koin.androidx.compose)

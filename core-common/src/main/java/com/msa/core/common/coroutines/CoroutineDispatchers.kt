@@ -6,7 +6,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.withContext
 import kotlin.coroutines.CoroutineContext
-import kotlin.coroutines.plus
 
 /**
  * Shared dispatcher abstraction that keeps coroutine usage consistent across core modules.
@@ -24,9 +23,9 @@ interface CoroutineDispatchers {
     fun newScope(parent: CoroutineContext = SupervisorJob()): CoroutineScope =
         CoroutineScope(parent + computation)
 
-    suspend fun <T> withIo(block: suspend () -> T): T = withContext(io, block)
+    suspend fun <T> withIo(block: suspend () -> T): T = withContext(io) { block() }
 
-    suspend fun <T> withComputation(block: suspend () -> T): T = withContext(computation, block)
+    suspend fun <T> withComputation(block: suspend () -> T): T = withContext(computation) { block() }
 }
 
 class DefaultCoroutineDispatchers(

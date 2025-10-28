@@ -16,4 +16,8 @@ dependencies {
     api(project(":core-common"))
     implementation(dependency.coroutines.core)
     implementation(dependency.ktor.core)
+
+    testImplementation(libs.junit)
+    testImplementation(dependency.coroutines.test)
+    testImplementation(dependency.ktor.client.mock)
 }

@@ -1,105 +1,97 @@
 package com.msa.core.di
 
+
+import com.google.gson.Gson
 import com.msa.core.common.config.AppConfig
-import com.msa.core.logging.api.LogContext
+import com.msa.core.common.coroutines.CoroutineDispatchers
+import com.msa.core.common.coroutines.DefaultCoroutineDispatchers
+import com.msa.core.common.text.StringProvider
+import com.msa.core.common.time.Clock
 import com.msa.core.logging.api.Logger
 import com.msa.core.logging.impl.FileLogger
-import com.msa.core.network.api.AuthOrchestrator
-import com.msa.core.network.api.CircuitBreaker
-import com.msa.core.network.api.EnvelopeApi
-import com.msa.core.network.api.HttpClientFactory
-import com.msa.core.network.api.NetworkStatusMonitor
-import com.msa.core.network.api.RawApi
-import com.msa.core.network.api.TokenStore as NetworkTokenStore
-import com.msa.core.network.impl.EnvelopeApiImpl
-import com.msa.core.network.impl.InMemoryHttpClientFactory
-import com.msa.core.network.impl.RawApiImpl
-import com.msa.core.network.impl.RefreshInterceptor
-import com.msa.core.network.impl.ResponseCache
-import com.msa.core.network.impl.SimpleCircuitBreaker
-import com.msa.core.storage.api.TokenStore as SecureTokenStore
-import com.msa.core.storage.impl.InMemorySecureStorage
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.sync.Mutex
-import org.koin.core.module.Module
+
+import com.msa.core.network.auth.AuthOrchestrator
+import com.msa.core.network.auth.TokenStore
+import com.msa.core.network.cache.HttpCacheRepository
+import com.msa.core.network.cache.HttpCacheRepositoryImpl
+import com.msa.core.network.client.EnvelopeApi
+import com.msa.core.network.client.HttpClientFactory
+import com.msa.core.network.client.NetworkClient
+import com.msa.core.network.client.RawApi
+import com.msa.core.network.config.NetworkConfig
+import com.msa.core.network.config.SSLConfig
+import com.msa.core.network.circuit.CircuitBreaker
+import com.msa.core.network.error.ErrorMapper
+import com.msa.core.network.error.ErrorMapperImpl
+import com.msa.core.network.client.NetworkStatusMonitor
+import com.msa.core.storage.prefs.BaseSharedPreferences
+import com.msa.core.validation.EnhancedNumberConverter
+import com.msa.core.validation.NationalCodeValidator
+import org.koin.android.ext.koin.androidContext
+import org.koin.core.scope.getOrNull
 import org.koin.dsl.bind
 import org.koin.dsl.module
-import java.io.File
-import kotlin.time.Duration.Companion.seconds
 
-object CoreModules {
-    fun provide(
-        cacheDir: File,
-        logDir: File,
-        baseUrl: String,
-        defaultHeaders: Map<String, String> = emptyMap(),
-        orchestrator: AuthOrchestrator
-    ): Module {
-        return module {
-            single(createdAtStart = true) { FileLogger(logDir) } bind Logger::class
-            single(createdAtStart = true) { (get<Logger>() as FileLogger).withContext(LogContext(traceId = "bootstrap")) }
+val coreModule = module {
+    single<CoroutineDispatchers> { DefaultCoroutineDispatchers() }
+    single { Clock.System }
 
-            single(createdAtStart = true) { InMemorySecureStorage() } bind SecureTokenStore::class
-            single(createdAtStart = true) { TokenBridge(get()) } bind NetworkTokenStore::class
+    single<StringProvider> { AndroidStringProvider(androidContext()) }
+    single<ErrorMapper> { ErrorMapperImpl(get()) }
 
-            single(createdAtStart = true) { InMemoryHttpClientFactory() } bind HttpClientFactory::class
-            single(createdAtStart = true) { SimpleCircuitBreaker() } bind CircuitBreaker::class
-            single(createdAtStart = true) { ResponseCache() }
-            single(createdAtStart = true) { Mutex() }
+    single { buildNetworkConfig(get()) }
+    single<HttpCacheRepository> { HttpCacheRepositoryImpl() }
+    single { CircuitBreaker(get<NetworkConfig>().circuit) }
 
-            single(createdAtStart = true) { RefreshInterceptor(get(), orchestrator, get()) }
-            single<RawApi>(createdAtStart = true) {
-                RawApiImpl(
-                    httpClient = get<HttpClientFactory>().create(
-                        HttpClientConfigFactory.create(baseUrl, cacheDir, defaultHeaders)
-                    ),
-                    circuitBreaker = get(),
-                    refreshInterceptor = get(),
-                    cache = get()
-                )
-            }
-            single<EnvelopeApi>(createdAtStart = true) { EnvelopeApiImpl(get()) }
+    single { AndroidNetworkStatusMonitor(androidContext().applicationContext) } bind NetworkStatusMonitor::class
 
-            single<NetworkStatusMonitor>(createdAtStart = true) { SimpleNetworkStatusMonitor() }
-        }
+    single {
+        HttpClientFactory.create(
+            config = get(),
+            tokenStore = getOrNull(),
+            authOrchestrator = getOrNull(),
+            cacheDir = androidContext().cacheDir.resolve("http-cache")
+        )
     }
+
+
+    single {
+        NetworkClient(
+            httpClient = get(),
+            statusMonitor = get(),
+            errorMapper = get(),
+            cacheRepository = get(),
+            circuitBreaker = get(),
+            config = get()
+        )
+    }
+
+    single<RawApi> { get<NetworkClient>() }
+    single<EnvelopeApi> { get<NetworkClient>() }
 }
 
-private object HttpClientConfigFactory {
-    fun create(baseUrl: String, cacheDir: File, defaultHeaders: Map<String, String>) = com.msa.core.network.api.HttpClientConfig(
-        baseUrl = baseUrl,
-        connectTimeout = 10.seconds,
-        readTimeout = 10.seconds,
-        writeTimeout = 10.seconds,
-        enableLogging = true,
-        cacheSizeBytes = 512 * 1024,
-        cacheDirectory = cacheDir,
-        defaultHeaders = defaultHeaders
+val utilsModule = module {
+    single { Gson() }
+
+    single {
+        BaseSharedPreferences(
+            context = androidContext(),
+            prefsName = get<AppConfig>().sharedPreferencesName,
+            isEncrypted = true,
+            gson = get(),
+        )
+    }
+
+    single { EnhancedNumberConverter }
+    single { NationalCodeValidator }
+
+    single<Logger> { FileLogger(androidContext().filesDir.resolve("logs")) }
+}
+
+private fun buildNetworkConfig(appConfig: AppConfig): NetworkConfig =
+    NetworkConfig(
+        baseUrl = appConfig.baseUrl,
+        loggingEnabled = appConfig.enableLogging,
+        defaultHeaders = emptyMap(),
+        ssl = SSLConfig(pinningEnabled = appConfig.sslPinningEnabled)
     )
-}
-
-private class TokenBridge(
-    private val storage: InMemorySecureStorage
-) : NetworkTokenStore {
-    override suspend fun read(): com.msa.core.network.api.AuthTokens? {
-        return storage.readTokens()?.let {
-            com.msa.core.network.api.AuthTokens(it.accessToken, it.refreshToken, it.expiresAtEpochSeconds)
-        }
-    }
-
-    override suspend fun write(tokens: com.msa.core.network.api.AuthTokens) {
-        storage.writeTokens(tokens.accessToken, tokens.refreshToken, tokens.expiresAtEpochSeconds)
-    }
-
-    override suspend fun clear() {
-        storage.clearTokens()
-    }
-}
-
-private class SimpleNetworkStatusMonitor : NetworkStatusMonitor {
-    private val state = MutableStateFlow(true)
-    override val isConnected: Flow<Boolean> = state.asStateFlow()
-    fun update(connected: Boolean) { state.value = connected }
-}

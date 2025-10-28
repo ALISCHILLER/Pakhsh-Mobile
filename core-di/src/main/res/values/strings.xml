@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="core_network_err_timeout">درخواست شما با خطا مواجه شد. لطفاً دوباره تلاش کنید.</string>
+    <string name="core_network_err_network">اتصال شبکه در دسترس نیست. اینترنت خود را بررسی کنید.</string>
+    <string name="core_network_err_parsing">پاسخ نامعتبر از سرور دریافت شد.</string>
+    <string name="core_network_err_unknown">خطای ناشناخته رخ داد.</string>
+    <string name="core_network_err_auth">نشست شما منقضی شده است. دوباره وارد شوید.</string>
+    <string name="core_network_err_client">درخواست نامعتبر بود. لطفاً اطلاعات را بررسی کنید.</string>
+    <string name="core_network_err_server">سرور موقتاً در دسترس نیست. بعداً تلاش کنید.</string>
+</resources>

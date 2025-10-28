@@ -12,7 +12,6 @@ import com.msa.core.network.config.NetworkConfig
 import com.msa.core.network.circuit.CircuitBreaker
 import com.msa.core.network.envelope.ApiResponse
 import com.msa.core.network.error.ErrorMapper
-import com.msa.core.network.status.NetworkStatusMonitor
 import com.msa.core.network.util.buildUrl
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
@@ -70,7 +69,7 @@ class NetworkClient(
         envelopeHandler: (suspend (HttpResponse) -> ApiResponse<T>)?
     ): Outcome<T> {
         if (!circuitBreaker.allow()) {
-            return Outcome.Fail(AppError.Network(message = "Circuit open", isConnectivity = true))
+            return Outcome.Failure(AppError.Network(message = "Circuit open", isConnectivity = true))
         }
 
         val url = buildUrl(config.baseUrl, path, query)
@@ -79,15 +78,15 @@ class NetworkClient(
 
         if (config.cachePolicy == CachePolicy.OfflineOnly) {
             return readFromCache<T>(cacheKey, url)?.also { circuitBreaker.onSuccess() }
-                ?: Outcome.Fail(AppError.Network(message = "Offline cache only", isConnectivity = true))
+                ?: Outcome.Failure(AppError.Network(message = "Offline cache only", isConnectivity = true))
         }
 
         if (isOffline) {
             return when (config.cachePolicy) {
-                CachePolicy.NoCache -> Outcome.Fail(AppError.Network(message = "Offline", isConnectivity = true))
+                CachePolicy.NoCache -> Outcome.Failure(AppError.Network(message = "Offline", isConnectivity = true))
                 CachePolicy.CacheFirst, CachePolicy.NetworkFirst, CachePolicy.OfflineOnly ->
                     readFromCache<T>(cacheKey, url)?.also { circuitBreaker.onSuccess() }
-                        ?: Outcome.Fail(AppError.Network(message = "Offline and cache miss", isConnectivity = true))
+                        ?: Outcome.Failure(AppError.Network(message = "Offline and cache miss", isConnectivity = true))
             }
         }
 
@@ -113,7 +112,7 @@ class NetworkClient(
             if (config.cachePolicy != CachePolicy.NoCache && t is IOException) {
                 readFromCache<T>(cacheKey, url)?.let { return it.also { circuitBreaker.onSuccess() } }
             }
-            Outcome.Fail(errorMapper.fromException(t, url))
+            Outcome.Failure(errorMapper.fromException(t, url))
         }
     }
 
@@ -132,21 +131,33 @@ class NetworkClient(
         return when {
             response.status.value == 304 -> {
                 val cached = cacheRepository.read<T>(cacheKey, url)
-                    ?: return Outcome.Fail(AppError.Network(message = "Cache miss on 304", statusCode = 304, isConnectivity = true))
+                    ?: return Outcome.Failure(
+                        AppError.Network(
+                            message = "Cache miss on 304",
+                            statusCode = 304,
+                            isConnectivity = true,
+                            endpoint = url
+                        )
+                    )
                 circuitBreaker.onSuccess()
-                Outcome.Ok(cached.value, cached.meta.copy(statusCode = 304))
+                Outcome.Success(cached.value, cached.meta.copy(statusCode = 304))
             }
 
             response.status.isSuccess() -> {
-                val baseMeta = extractMeta(response, latencyMillis, paginationFromHeaders)
+                val baseMeta = extractMeta(response, latencyMillis, paginationFromHeaders, headersMap)
                 val outcome = when {
                     envelopeHandler != null -> handleEnvelope(cacheKey, url, response, envelopeHandler, baseMeta)
                     parser != null -> handleRaw(cacheKey, url, response, parser, baseMeta)
-                    else -> Outcome.Fail(AppError.Unknown("No parser provided", null, url))
+                    else -> Outcome.Failure(
+                        AppError.Unknown(
+                            message = "No parser provided",
+                            endpoint = url
+                        )
+                    )
                 }
-                if (outcome is Outcome.Ok) {
+                if (outcome is Outcome.Success) {
                     circuitBreaker.onSuccess()
-                } else if (outcome is Outcome.Fail && outcome.error is AppError.Business) {
+                } else if (outcome is Outcome.Failure && outcome.error is AppError.Business) {
                     circuitBreaker.onSuccess()
                 } else {
                     circuitBreaker.onFailure()
@@ -163,7 +174,7 @@ class NetworkClient(
                     }
                 }
                 circuitBreaker.onFailure()
-                Outcome.Fail(errorMapper.fromHttp(statusCode, safeBody(response), url, headersMap))
+                Outcome.Failure(errorMapper.fromHttp(statusCode, safeBody(response), url, headersMap))
             }
         }
     }
@@ -177,7 +188,7 @@ class NetworkClient(
     ): Outcome<T> {
         val envelope = envelopeHandler(response)
         if (envelope.hasError || envelope.data == null) {
-            return Outcome.Fail(
+            return Outcome.Failure(
                 AppError.Business(
                     envelope.message ?: "Business error",
                     payload = envelope.meta
@@ -186,7 +197,7 @@ class NetworkClient(
         }
         val metaWithPagination = envelope.meta?.toPageInfo()?.let { meta.copy(pagination = it) } ?: meta
         cacheIfNeeded(cacheKey, url, response, envelope.data, metaWithPagination)
-        return Outcome.Ok(envelope.data, metaWithPagination)
+        return Outcome.Success(envelope.data, metaWithPagination)
     }
 
     private suspend fun <T> handleRaw(
@@ -198,15 +209,21 @@ class NetworkClient(
     ): Outcome<T> {
         val value = parser(response)
         cacheIfNeeded(cacheKey, url, response, value, meta)
-        return Outcome.Ok(value, meta)
+        return Outcome.Success(value, meta)
     }
 
-    private fun extractMeta(response: HttpResponse, latencyMillis: Long, pagination: PageInfo?): Meta =
+    private fun extractMeta(
+        response: HttpResponse,
+        latencyMillis: Long,
+        pagination: PageInfo?,
+        headers: Map<String, String>
+    ): Meta =
         Meta(
             statusCode = response.status.value,
             etag = response.headers[NetHeaders.ETAG],
             requestId = response.headers[NetHeaders.X_REQUEST_ID],
             pagination = pagination,
+            extras = headers,
             fromCache = false,
             latencyMillis = latencyMillis,
             receivedAtMillis = System.currentTimeMillis()
@@ -230,7 +247,7 @@ class NetworkClient(
     private fun <T> readFromCache(cacheKey: String, url: String): Outcome<T>? =
         cacheRepository.read<T>(cacheKey, url)?.let { cached -> cached.toOutcome() }
 
-    private fun <T> CachedEntry<T>.toOutcome(): Outcome<T> = Outcome.Ok(value, meta)
+    private fun <T> CachedEntry<T>.toOutcome(): Outcome<T> = Outcome.Success(value, meta)
 
     private fun cacheKey(method: HttpMethod, suffix: String): String = "${method.value}|$suffix"
 
@@ -243,7 +260,15 @@ class NetworkClient(
         val nextCursor = headers["X-Next-Cursor"]
         val prevCursor = headers["X-Prev-Cursor"]
         return if (listOf(page, pageSize, nextPage, prevPage, total, nextCursor, prevCursor).any { it != null }) {
-            PageInfo(page, pageSize, nextPage, prevPage, total, nextCursor, prevCursor)
+            PageInfo(
+                page = page,
+                pageSize = pageSize,
+                nextPage = nextPage,
+                previousPage = prevPage,
+                total = total,
+                nextCursor = nextCursor,
+                previousCursor = prevCursor
+            )
         } else {
             null
         }
@@ -260,7 +285,15 @@ class NetworkClient(
         val nextCursor = normalized["nextcursor"] ?: normalized["next_cursor"]
         val prevCursor = normalized["prevcursor"] ?: normalized["prev_cursor"]
         return if (listOf(page, pageSize, nextPage, prevPage, total, nextCursor, prevCursor).any { it != null }) {
-            PageInfo(page, pageSize, nextPage, prevPage, total, nextCursor, prevCursor)
+            PageInfo(
+                page = page,
+                pageSize = pageSize,
+                nextPage = nextPage,
+                previousPage = prevPage,
+                total = total,
+                nextCursor = nextCursor,
+                previousCursor = prevCursor
+            )
         } else {
             null
         }

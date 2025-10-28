@@ -12,7 +12,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.msa.persistenc.utils.config.AppConfigmsa
+import com.msa.persistence.utils.config.AppConfigmsa
 import com.msa.visitApp.ui.theme.msaPakhshMobileTheme
 import org.koin.core.component.inject
 class MainActivity : ComponentActivity() {
