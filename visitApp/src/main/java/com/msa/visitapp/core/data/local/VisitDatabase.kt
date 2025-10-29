@@ -1,6 +1,6 @@
-// visitApp/src/main/java/com/msa/visitApp/data/local/VisitDatabase.kt
+// visitapp/src/main/java/com/msa/visitapp/data/local/VisitDatabase.kt
 
-package com.msa.visitApp.core.data.local
+package com.msa.visitapp.core.data.local
 
 import androidx.room.Database
 import androidx.room.RoomDatabase
@@ -16,8 +16,8 @@ import com.msa.msapakhsh.data.local.entity.ProductEntity
 import com.msa.msapakhsh.data.local.entity.ProductGroupEntity
 import com.msa.msapakhsh.data.local.entity.ProductUnitEntity
 import com.msa.msapakhsh.data.local.entity.UserModelEntity
-import com.msa.visitApp.core.data.local.dao.VisitDao
-import com.msa.visitApp.core.data.local.entities.VisitEntity
+import com.msa.visitapp.core.data.local.dao.VisitDao
+import com.msa.visitapp.core.data.local.entities.VisitEntity
 
 @Database(
     entities = [

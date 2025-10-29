@@ -1,4 +1,4 @@
-# supervisorApp
+# supervisorapp
 
 Android application for supervisors.
 

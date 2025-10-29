@@ -1,4 +1,4 @@
-package com.msa.supervisorApp.ui.theme
+package com.msa.supervisorapp.ui.theme
 
 import android.app.Activity
 import android.os.Build

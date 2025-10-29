@@ -1,7 +1,7 @@
-package com.msa.visitApp.di
+package com.msa.visitapp.di
 
 import androidx.room.Room
-import com.msa.visitApp.core.data.local.VisitDatabase
+import com.msa.visitapp.core.data.local.VisitDatabase
 
 import org.koin.android.ext.koin.androidContext
 import org.koin.dsl.module

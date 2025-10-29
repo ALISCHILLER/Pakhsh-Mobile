@@ -1,4 +1,4 @@
-package com.msa.supervisorApp
+package com.msa.supervisorapp
 
 import org.junit.Test
 

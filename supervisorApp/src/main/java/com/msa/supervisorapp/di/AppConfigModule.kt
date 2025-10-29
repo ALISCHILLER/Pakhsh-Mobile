@@ -1,9 +1,9 @@
 package com.msa.supervisorapp.di
 
 import com.msa.core.common.config.AppConfig
-import com.msa.supervisorApp.config.SupervisorAppConfig
+import com.msa.supervisorapp.config.supervisorappConfig
 import org.koin.dsl.module
 
-val supervisorAppConfigModule = module {
-    single<AppConfig> { SupervisorAppConfig }
+val supervisorappConfigModule = module {
+    single<AppConfig> { supervisorappConfig }
 }

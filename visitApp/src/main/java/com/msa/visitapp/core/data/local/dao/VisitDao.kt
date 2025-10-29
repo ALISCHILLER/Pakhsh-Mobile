@@ -1,10 +1,10 @@
-package com.msa.visitApp.core.data.local.dao
+package com.msa.visitapp.core.data.local.dao
 
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.Query
-import com.msa.visitApp.core.data.local.entities.VisitEntity
+import com.msa.visitapp.core.data.local.entities.VisitEntity
 
 @Dao
 interface VisitDao {

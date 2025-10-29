@@ -1,4 +1,4 @@
-package com.msa.visitApp.core.data.local.entities
+package com.msa.visitapp.core.data.local.entities
 
 
 import androidx.room.Entity

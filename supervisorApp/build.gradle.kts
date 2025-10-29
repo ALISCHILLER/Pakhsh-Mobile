@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.msa.supervisorApp"
+    namespace = "com.msa.supervisorapp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.msa.supervisorApp"
+        applicationId = "com.msa.supervisorapp"
         minSdk = 27
         targetSdk = 35
         versionCode = 1
@@ -24,7 +24,7 @@ android {
     productFlavors {
         create("supervisor") {
             dimension = "appType"
-            applicationId = "com.msa.supervisorApp"
+            applicationId = "com.msa.supervisorapp"
             buildConfigField("String", "APP_FLAVOR", "\"supervisor\"")
             matchingFallbacks += listOf("supervisor")
         }

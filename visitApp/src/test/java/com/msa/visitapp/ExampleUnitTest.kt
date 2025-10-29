@@ -1,4 +1,4 @@
-package com.msa.visitApp
+package com.msa.visitapp
 
 import org.junit.Test
 

@@ -1,4 +1,4 @@
-package com.msa.visitApp.ui.theme
+package com.msa.visitapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 

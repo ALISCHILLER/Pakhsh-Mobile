@@ -5,11 +5,11 @@ plugins {
 }
 
 android {
-    namespace = "com.msa.distributeApp"
+    namespace = "com.msa.distributeapp"
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.msa.distributeApp"
+        applicationId = "com.msa.distributeapp"
         minSdk = 27
         targetSdk = 35
         versionCode = 1
@@ -23,7 +23,7 @@ android {
     productFlavors {
         create("distribute") {
             dimension = "appType"
-            applicationId = "com.msa.distributeApp"
+            applicationId = "com.msa.distributeapp"
             buildConfigField("String", "APP_FLAVOR", "\"distribute\"")
             matchingFallbacks += listOf("distribute")
         }

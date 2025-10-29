@@ -1,4 +1,4 @@
-package com.msa.visitApp
+package com.msa.visitapp
 
 import android.os.Bundle
 import android.util.Log
@@ -13,7 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import com.msa.core.common.config.AppConfig
-import com.msa.visitApp.ui.theme.msaPakhshMobileTheme
+import com.msa.visitapp.ui.theme.msaPakhshMobileTheme
 import org.koin.android.ext.android.inject
 class MainActivity : ComponentActivity() {
     private val appConfig: AppConfig by inject()

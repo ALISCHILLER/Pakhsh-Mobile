@@ -1,9 +1,9 @@
 package com.msa.visitapp.config
 
 import com.msa.core.common.config.AppConfig
-import com.msa.visitApp.BuildConfig
+import com.msa.visitapp.BuildConfig
 
-object VisitAppConfig : AppConfig {
+object visitappConfig : AppConfig {
     override val flavorName: String
         get() = BuildConfig.FLAVOR
 

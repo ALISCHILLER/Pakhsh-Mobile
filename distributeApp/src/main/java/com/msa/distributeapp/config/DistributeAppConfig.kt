@@ -1,9 +1,9 @@
-package com.msa.distributeApp.config
+package com.msa.distributeapp.config
 
 import com.msa.core.common.config.AppConfig
-import com.msa.distributeApp.BuildConfig
+import com.msa.distributeapp.BuildConfig
 
-object DistributeAppConfig : AppConfig {
+object distributeappConfig : AppConfig {
     override val flavorName: String
         get() = BuildConfig.FLAVOR
 

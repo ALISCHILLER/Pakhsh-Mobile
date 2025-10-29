@@ -1,4 +1,4 @@
-package com.msa.distributeApp
+package com.msa.distributeapp
 
 import android.os.Bundle
 import android.util.Log

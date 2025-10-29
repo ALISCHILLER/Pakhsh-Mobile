@@ -1,4 +1,4 @@
-package com.msa.supervisorApp
+package com.msa.supervisorapp
 
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -19,6 +19,6 @@ class ExampleInstrumentedTest {
     fun useAppContext() {
         // Context of the app under test.
         val appContext = InstrumentationRegistry.getInstrumentation().targetContext
-        assertEquals("com.msa.supervisorApp", appContext.packageName)
+        assertEquals("com.msa.supervisorapp", appContext.packageName)
     }
 }

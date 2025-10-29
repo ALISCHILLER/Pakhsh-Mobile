@@ -1,9 +1,9 @@
 package com.msa.supervisorapp.config
 
 import com.msa.core.common.config.AppConfig
-import com.msa.supervisorApp.BuildConfig
+import com.msa.supervisorapp.BuildConfig
 
-object SupervisorAppConfig : AppConfig {
+object supervisorappConfig : AppConfig {
     override val flavorName: String
         get() = BuildConfig.FLAVOR
 

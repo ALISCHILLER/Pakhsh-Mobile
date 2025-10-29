@@ -1,16 +1,16 @@
-package com.msa.distributeApp
+package com.msa.distributeapp
 
 import android.app.Application
 import com.msa.core.di.coreModule
 import com.msa.core.di.utilsModule
-import com.msa.distributeApp.BuildConfig
-import com.msa.distributeApp.di.distributeAppConfigModule
+import com.msa.distributeapp.BuildConfig
+import com.msa.distributeapp.di.distributeappConfigModule
 import com.msa.persistence.di.persistenceModule
 import org.koin.android.ext.koin.androidContext
 import org.koin.core.context.startKoin
 import timber.log.Timber
 
-class DistributeAppApplication : Application() {
+class distributeappApplication : Application() {
     override fun onCreate() {
         super.onCreate()
 
@@ -19,9 +19,9 @@ class DistributeAppApplication : Application() {
         }
 
         startKoin {
-            androidContext(this@DistributeAppApplication)
+            androidContext(this@distributeappApplication)
             modules(
-                distributeAppConfigModule,
+                distributeappConfigModule,
                 coreModule,
                 utilsModule,
                 persistenceModule,

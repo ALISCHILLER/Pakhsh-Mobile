@@ -1,9 +1,9 @@
 package com.msa.distributeapp.di
 
 import com.msa.core.common.config.AppConfig
-import com.msa.distributeApp.config.DistributeAppConfig
+import com.msa.distributeapp.config.distributeappConfig
 import org.koin.dsl.module
 
-val distributeAppConfigModule = module {
-    single<AppConfig> { DistributeAppConfig }
+val distributeappConfigModule = module {
+    single<AppConfig> { distributeappConfig }
 }

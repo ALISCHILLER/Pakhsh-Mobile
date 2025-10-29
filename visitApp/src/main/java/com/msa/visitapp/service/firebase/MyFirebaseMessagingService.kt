@@ -1,4 +1,4 @@
-package com.msa.visitApp.service.firebase
+package com.msa.visitapp.service.firebase
 
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -15,8 +15,8 @@ import kotlinx.coroutines.*
 import org.koin.android.ext.android.inject
 import com.msa.msapakhsh.data.local.dao.FCMMessageDao
 import com.msa.msapakhsh.data.local.entity.FCMMessageEntity
-import com.msa.visitApp.MainActivity
-import com.msa.visitApp.R
+import com.msa.visitapp.MainActivity
+import com.msa.visitapp.R
 class MyFirebaseMessagingService : FirebaseMessagingService() {
 
     private val TAG = "FCMService"

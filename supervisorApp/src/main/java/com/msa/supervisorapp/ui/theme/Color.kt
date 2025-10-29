@@ -1,4 +1,4 @@
-package com.msa.supervisorApp.ui.theme
+package com.msa.supervisorapp.ui.theme
 
 import androidx.compose.ui.graphics.Color
 
