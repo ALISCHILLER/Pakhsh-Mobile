@@ -1,5 +1,7 @@
 package com.msa.persistence.data.auth.repo
 
+
+import com.msa.core.common.error.AppError
 import com.msa.core.common.result.Meta
 import com.msa.core.common.result.Outcome
 import com.msa.core.common.time.Clock
@@ -46,8 +48,12 @@ class AuthRepositoryImpl(
         return when (val outcome = api.login(request)) {
             is Outcome.Success -> {
                 val session = outcome.value.toSessionEntity(appFlavor, clock)
-                persistSession(session, outcome.meta)
-                Outcome.Success(session.toDomain(), outcome.meta)
+                if (!persistSession(session, outcome.meta)) {
+                    Timber.e("Failed to persist login session for %s", username)
+                    Outcome.Failure(AppError.Unknown(message = "Unable to persist authentication session"))
+                } else {
+                    Outcome.Success(session.toDomain(), outcome.meta)
+                }
             }
             is Outcome.Failure -> {
                 Timber.w(outcome.error, "Login failed for %s", username)
@@ -57,7 +63,9 @@ class AuthRepositoryImpl(
     }
 
     override suspend fun logout(): Outcome<Unit> {
-        localDataSource.clear()
+        if (!localDataSource.clear()) {
+            Timber.w("Failed to clear persisted auth session during logout")
+        }
         tokenStore.clear()
         return Outcome.Success(Unit)
     }
@@ -66,9 +74,12 @@ class AuthRepositoryImpl(
 
     override suspend fun sessionMeta(): Meta? = localDataSource.currentMeta()
 
-    private suspend fun persistSession(session: AuthSessionEntity, meta: Meta) {
-        localDataSource.persist(session, meta)
-        tokenStore.updateTokens(session.token.accessToken, session.token.refreshToken)
+    private suspend fun persistSession(session: AuthSessionEntity, meta: Meta): Boolean {
+        val persisted = localDataSource.persist(session, meta)
+        if (persisted) {
+            tokenStore.updateTokens(session.token.accessToken, session.token.refreshToken)
+        }
+        return persisted
     }
 }
 

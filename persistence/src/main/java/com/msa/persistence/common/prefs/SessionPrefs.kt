@@ -20,25 +20,44 @@ class SessionPrefs(
     fun readMeta(): Meta? =
         preferences.getObject(KEY_META, Meta::class.java)
 
-    fun writeSession(session: AuthSessionEntity) {
+    fun writeSession(session: AuthSessionEntity): Boolean {
         val persisted = preferences.saveObject(KEY_SESSION, session, commit = true)
         if (!persisted) {
             Timber.w("Failed to persist auth session to shared preferences")
         }
+        return persisted
     }
 
-    fun writeMeta(meta: Meta) {
+    fun writeMeta(meta: Meta): Boolean {
         val persisted = preferences.saveObject(KEY_META, meta, commit = true)
         if (!persisted) {
             Timber.w("Failed to persist auth session metadata")
         }
+        return persisted
     }
 
-    fun clearSession() {
-        preferences.removeKeys(KEY_SESSION, KEY_META, commit = true)
+    fun clearSession(): Boolean {
+        val cleared = preferences.removeKeys(KEY_SESSION, KEY_META, commit = true)
+        if (!cleared) {
+            Timber.w("Failed to clear auth session and metadata from shared preferences")
+        }
+        return cleared
     }
 
-    fun clearMeta() {
-        preferences.removeKey(KEY_META, commit = true)
+    fun clearMeta(): Boolean {
+        val cleared = preferences.removeKey(KEY_META, commit = true)
+        if (!cleared) {
+            Timber.w("Failed to clear auth session metadata from shared preferences")
+        }
+        return cleared
     }
+
+    fun clearLegacySession(): Boolean {
+        val cleared = preferences.removeKey(KEY_SESSION, commit = true)
+        if (!cleared) {
+            Timber.w("Failed to clear legacy auth session from shared preferences")
+        }
+        return cleared
+    }
+
 }

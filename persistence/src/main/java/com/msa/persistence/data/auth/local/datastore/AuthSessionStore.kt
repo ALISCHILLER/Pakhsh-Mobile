@@ -11,10 +11,11 @@ import kotlinx.coroutines.flow.Flow
  */
 interface AuthSessionStore {
     val session: Flow<AuthSessionEntity?>
+    val meta: Flow<Meta?>
 
-    suspend fun persist(session: AuthSessionEntity, metadata: Meta?)
+    suspend fun persist(session: AuthSessionEntity, metadata: Meta?): Boolean
 
-    suspend fun clear()
+    suspend fun clear(): Boolean
 
     fun current(): AuthSessionEntity?
 
