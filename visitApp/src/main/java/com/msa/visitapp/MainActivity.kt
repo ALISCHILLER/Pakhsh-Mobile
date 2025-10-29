@@ -12,22 +12,18 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
-import com.msa.persistence.utils.config.AppConfigmsa
+import com.msa.core.common.config.AppConfig
 import com.msa.visitApp.ui.theme.msaPakhshMobileTheme
-import org.koin.core.component.inject
+import org.koin.android.ext.android.inject
 class MainActivity : ComponentActivity() {
-
+    private val appConfig: AppConfig by inject()
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+        Log.e("MainActivity", "onCreate: ${appConfig.flavorName}")
         setContent {
             msaPakhshMobileTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-
-                    val appConfig = AppConfigmsa
-                    Log.e("MainActivity", "onCreate: ${appConfig.flavorName}")
-
-
+                Scaffold(modifier = Modifier.fillMaxSize()) { _ ->
                 }
             }
         }

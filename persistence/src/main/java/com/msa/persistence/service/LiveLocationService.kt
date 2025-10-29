@@ -20,7 +20,6 @@ import com.msa.core.storage.prefs.BaseSharedPreferences
 import com.msa.persistence.R
 import com.msa.persistence.data.signalR.NotificationModel
 import com.msa.persistence.data.signalR.SignalRManager // مقصد نوتی
-import com.msa.persistence.utils.config.AppConfigmsa
 import kotlinx.coroutines.*
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
