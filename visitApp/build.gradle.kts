@@ -17,14 +17,40 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        missingDimensionStrategy("appType", "visit")
+        missingDimensionStrategy("envType", "prod")
     }
 
-    flavorDimensions += "appType"
+    flavorDimensions += listOf("appType", "envType")
     productFlavors {
         create("visit") {
             dimension = "appType"
             applicationId = "com.msa.visitApp"
             buildConfigField("String", "APP_FLAVOR", "\"visit\"")
+            matchingFallbacks += listOf("visit")
+        }
+
+        create("dev") {
+            dimension = "envType"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "BASE_URL", "\"https://dev.api.visitapp.com\"")
+            buildConfigField("String", "SIGNALR_URL", "\"https://dev-signalr.visitapp.com/hub\"")
+            matchingFallbacks += listOf("dev")
+        }
+        create("stage") {
+            dimension = "envType"
+            applicationIdSuffix = ".stage"
+            versionNameSuffix = "-stage"
+            buildConfigField("String", "BASE_URL", "\"https://stage.api.visitapp.com\"")
+            buildConfigField("String", "SIGNALR_URL", "\"https://stage-signalr.visitapp.com/hub\"")
+            matchingFallbacks += listOf("stage")
+        }
+        create("prod") {
+            dimension = "envType"
+            buildConfigField("String", "BASE_URL", "\"https://api.visitapp.com\"")
+            buildConfigField("String", "SIGNALR_URL", "\"https://signalr.visitapp.com/hub\"")
+            matchingFallbacks += listOf("prod")
         }
     }
 
@@ -71,7 +97,9 @@ dependencies {
     debugImplementation(libs.androidx.ui.test.manifest)
 
     // --- ماژول‌ها ---
-    implementation(project(":core"))
+    implementation(project(":core-common"))
+    implementation(project(":core-di"))
+    implementation(project(":core-ui"))
     implementation(project(":persistence"))
 
     // --- Koin (از dependency) ---

@@ -21,11 +21,6 @@ val visitDatabaseModule = module {
     }
 
     // DAO ها
-    single { get<VisitDatabase>().userDao() }
     single { get<VisitDatabase>().visitDao() }
-    single { get<VisitDatabase>().productGroupDao() }
-    single { get<VisitDatabase>().productDao() }
-    single { get<VisitDatabase>().productUnitDao() }
-    single { get<VisitDatabase>().customerDao() }
-    single { get<VisitDatabase>().fcmMessageDao() }
+
 }

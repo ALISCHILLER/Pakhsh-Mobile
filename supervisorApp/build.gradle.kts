@@ -17,13 +17,39 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        missingDimensionStrategy("appType", "supervisor")
+        missingDimensionStrategy("envType", "prod")
     }
-    flavorDimensions += "appType"
+    flavorDimensions += listOf("appType", "envType")
     productFlavors {
         create("supervisor") {
             dimension = "appType"
             applicationId = "com.msa.supervisorApp"
             buildConfigField("String", "APP_FLAVOR", "\"supervisor\"")
+            matchingFallbacks += listOf("supervisor")
+        }
+
+        create("dev") {
+            dimension = "envType"
+            applicationIdSuffix = ".dev"
+            versionNameSuffix = "-dev"
+            buildConfigField("String", "BASE_URL", "\"https://dev.api.supervisorapp.com\"")
+            buildConfigField("String", "SIGNALR_URL", "\"https://dev-signalr.supervisorapp.com/hub\"")
+            matchingFallbacks += listOf("dev")
+        }
+        create("stage") {
+            dimension = "envType"
+            applicationIdSuffix = ".stage"
+            versionNameSuffix = "-stage"
+            buildConfigField("String", "BASE_URL", "\"https://stage.api.supervisorapp.com\"")
+            buildConfigField("String", "SIGNALR_URL", "\"https://stage-signalr.supervisorapp.com/hub\"")
+            matchingFallbacks += listOf("stage")
+        }
+        create("prod") {
+            dimension = "envType"
+            buildConfigField("String", "BASE_URL", "\"https://api.supervisorapp.com\"")
+            buildConfigField("String", "SIGNALR_URL", "\"https://signalr.supervisorapp.com/hub\"")
+            matchingFallbacks += listOf("prod")
         }
 
     }
@@ -67,11 +93,14 @@ dependencies {
     androidTestImplementation(libs.androidx.ui.test.junit4)
     debugImplementation(libs.androidx.ui.tooling)
     debugImplementation(libs.androidx.ui.test.manifest)
+    implementation(project(":core-common"))
+    implementation(project(":core-di"))
+    implementation(project(":core-ui"))
     implementation(project(":persistence"))
-    implementation(project(":core"))
 
     //di koin
     implementation(dependency.koin.androidx.compose)
     implementation(dependency.koin.test)
     testImplementation(dependency.koin.android.test)
+    implementation(dependency.timber.log)
 }
