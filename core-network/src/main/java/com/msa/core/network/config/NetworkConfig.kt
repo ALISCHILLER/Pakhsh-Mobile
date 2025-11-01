@@ -7,6 +7,7 @@ data class NetworkConfig(
     val writeTimeoutMs: Long = 15_000,
     val loggingEnabled: Boolean = true,
     val defaultHeaders: Map<String, String> = emptyMap(),
+    val acceptLanguage: String? = null,
     val ssl: SSLConfig = SSLConfig(),
     val cache: CacheConfig = CacheConfig(),
     val retry: RetryPolicy = RetryPolicy(),

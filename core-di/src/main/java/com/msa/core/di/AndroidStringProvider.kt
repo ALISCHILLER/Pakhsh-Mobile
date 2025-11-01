@@ -20,6 +20,6 @@ class AndroidStringProvider(
         NetworkStringRes.ERR_AUTH -> R.string.core_network_err_auth
         NetworkStringRes.ERR_CLIENT -> R.string.core_network_err_client
         NetworkStringRes.ERR_SERVER -> R.string.core_network_err_server
-        else -> R.string.core_network_err_unknown
+        else -> id.takeIf { it != 0 } ?: R.string.core_network_err_unknown
     }
 }

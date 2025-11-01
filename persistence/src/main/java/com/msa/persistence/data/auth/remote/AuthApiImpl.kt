@@ -6,6 +6,7 @@ import com.msa.core.network.client.NetworkRequest
 import com.msa.core.network.client.RawApi
 import com.msa.persistence.data.auth.dto.LoginRequest
 import com.msa.persistence.data.auth.dto.LoginResponse
+import com.msa.core.network.config.CachePolicy
 import io.ktor.client.call.body
 import io.ktor.http.HttpMethod
 import timber.log.Timber
@@ -28,6 +29,7 @@ class AuthApiImpl(
                 method = HttpMethod.Post,
                 path = AUTH_LOGIN_PATH,
                 body = request,
+                cachePolicyOverride = CachePolicy.NoCache,
                 parser = { response -> response.body<LoginResponse>() }
             )
         )

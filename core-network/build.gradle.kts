@@ -15,6 +15,14 @@ kotlin {
 dependencies {
     api(project(":core-common"))
     implementation(dependency.coroutines.core)
+    implementation(platform(dependency.ktor.bom))
+    implementation(dependency.ktor.core)
+    implementation(dependency.ktor.okhttp)
+    implementation(dependency.ktor.logging)
+    implementation(dependency.ktor.negotiation)
+    implementation(dependency.ktor.json)
+
+    implementation(dependency.kotlinx.serialization.json)
     implementation(dependency.ktor.core)
 
     testImplementation(libs.junit)

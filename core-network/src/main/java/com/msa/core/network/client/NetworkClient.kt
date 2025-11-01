@@ -41,6 +41,7 @@ class NetworkClient(
             query = request.query,
             headers = request.headers,
             body = request.body,
+            cachePolicy = request.cachePolicyOverride ?: config.cachePolicy,
             cacheKeySuffix = "raw",
             parser = request.parser,
             envelopeHandler = null
@@ -53,6 +54,7 @@ class NetworkClient(
             query = request.query,
             headers = request.headers,
             body = request.body,
+            cachePolicy = request.cachePolicyOverride ?: config.cachePolicy,
             cacheKeySuffix = "env",
             parser = null,
             envelopeHandler = request.parser
@@ -64,6 +66,7 @@ class NetworkClient(
         query: Map<String, Any?>,
         headers: Map<String, String>,
         body: Any?,
+        cachePolicy: CachePolicy,
         cacheKeySuffix: String,
         parser: (suspend (HttpResponse) -> T)?,
         envelopeHandler: (suspend (HttpResponse) -> ApiResponse<T>)?
@@ -73,16 +76,16 @@ class NetworkClient(
         }
 
         val url = buildUrl(config.baseUrl, path, query)
-        val cacheKey = cacheKey(method, cacheKeySuffix)
+        val cacheKey = cacheKey(method, path, query, cacheKeySuffix)
         val isOffline = !statusMonitor.isOnline()
 
-        if (config.cachePolicy == CachePolicy.OfflineOnly) {
+        if (cachePolicy == CachePolicy.OfflineOnly) {
             return readFromCache<T>(cacheKey, url)?.also { circuitBreaker.onSuccess() }
                 ?: Outcome.Failure(AppError.Network(message = "Offline cache only", isConnectivity = true))
         }
 
         if (isOffline) {
-            return when (config.cachePolicy) {
+            return when (cachePolicy) {
                 CachePolicy.NoCache -> Outcome.Failure(AppError.Network(message = "Offline", isConnectivity = true))
                 CachePolicy.CacheFirst, CachePolicy.NetworkFirst, CachePolicy.OfflineOnly ->
                     readFromCache<T>(cacheKey, url)?.also { circuitBreaker.onSuccess() }
@@ -90,7 +93,7 @@ class NetworkClient(
             }
         }
 
-        if (config.cachePolicy == CachePolicy.CacheFirst) {
+        if (cachePolicy == CachePolicy.CacheFirst) {
             readFromCache<T>(cacheKey, url)?.let {
                 circuitBreaker.onSuccess()
                 return it
@@ -106,10 +109,10 @@ class NetworkClient(
                 if (etag != null) header(NetHeaders.IF_NONE_MATCH, etag)
                 if (body != null) setBody(body)
             }
-            handleResponse(cacheKey, url, response, parser, envelopeHandler, startNanos)
+            handleResponse(cachePolicy, cacheKey, url, response, parser, envelopeHandler, startNanos)
         } catch (t: Throwable) {
             circuitBreaker.onFailure()
-            if (config.cachePolicy != CachePolicy.NoCache && t is IOException) {
+            if (cachePolicy != CachePolicy.NoCache && t is IOException) {
                 readFromCache<T>(cacheKey, url)?.let { return it.also { circuitBreaker.onSuccess() } }
             }
             Outcome.Failure(errorMapper.fromException(t, url))
@@ -117,6 +120,7 @@ class NetworkClient(
     }
 
     private suspend fun <T> handleResponse(
+        cachePolicy: CachePolicy,
         cacheKey: String,
         url: String,
         response: HttpResponse,
@@ -146,8 +150,8 @@ class NetworkClient(
             response.status.isSuccess() -> {
                 val baseMeta = extractMeta(response, latencyMillis, paginationFromHeaders, headersMap)
                 val outcome = when {
-                    envelopeHandler != null -> handleEnvelope(cacheKey, url, response, envelopeHandler, baseMeta)
-                    parser != null -> handleRaw(cacheKey, url, response, parser, baseMeta)
+                    envelopeHandler != null -> handleEnvelope(cachePolicy, cacheKey, url, response, envelopeHandler, baseMeta)
+                    parser != null -> handleRaw(cachePolicy, cacheKey, url, response, parser, baseMeta)
                     else -> Outcome.Failure(
                         AppError.Unknown(
                             message = "No parser provided",
@@ -167,7 +171,7 @@ class NetworkClient(
 
             else -> {
                 val statusCode = response.status.value
-                if (config.cachePolicy == CachePolicy.NetworkFirst && statusCode in config.retry.retryStatusCodes) {
+                if (cachePolicy == CachePolicy.NetworkFirst && statusCode in config.retry.retryStatusCodes) {
                     readFromCache<T>(cacheKey, url)?.let {
                         circuitBreaker.onSuccess()
                         return it
@@ -180,6 +184,7 @@ class NetworkClient(
     }
 
     private suspend fun <T> handleEnvelope(
+        cachePolicy: CachePolicy,
         cacheKey: String,
         url: String,
         response: HttpResponse,
@@ -196,11 +201,12 @@ class NetworkClient(
             )
         }
         val metaWithPagination = envelope.meta?.toPageInfo()?.let { meta.copy(pagination = it) } ?: meta
-        cacheIfNeeded(cacheKey, url, response, envelope.data, metaWithPagination)
+        cacheIfNeeded(cachePolicy, cacheKey, url, response, envelope.data, metaWithPagination)
         return Outcome.Success(envelope.data, metaWithPagination)
     }
 
     private suspend fun <T> handleRaw(
+        cachePolicy: CachePolicy,
         cacheKey: String,
         url: String,
         response: HttpResponse,
@@ -208,7 +214,7 @@ class NetworkClient(
         meta: Meta
     ): Outcome<T> {
         val value = parser(response)
-        cacheIfNeeded(cacheKey, url, response, value, meta)
+        cacheIfNeeded(cachePolicy, cacheKey, url, response, value, meta)
         return Outcome.Success(value, meta)
     }
 
@@ -233,13 +239,14 @@ class NetworkClient(
         runCatching { response.bodyAsText() }.getOrNull()
 
     private fun <T> cacheIfNeeded(
+        cachePolicy: CachePolicy,
         cacheKey: String,
         url: String,
         response: HttpResponse,
         value: T,
         meta: Meta
     ) {
-        if (config.cachePolicy == CachePolicy.NoCache) return
+        if (cachePolicy == CachePolicy.NoCache) return
         response.headers[NetHeaders.ETAG]?.let { cacheRepository.writeEtag(cacheKey, url, it) }
         cacheRepository.write(cacheKey, url, value, meta.copy(fromCache = false))
     }
@@ -249,7 +256,20 @@ class NetworkClient(
 
     private fun <T> CachedEntry<T>.toOutcome(): Outcome<T> = Outcome.Success(value, meta)
 
-    private fun cacheKey(method: HttpMethod, suffix: String): String = "${method.value}|$suffix"
+    private fun cacheKey(
+        method: HttpMethod,
+        path: String,
+        query: Map<String, Any?>,
+        suffix: String
+    ): String {
+        val normalizedQuery = query.entries
+            .sortedBy { it.key }
+            .joinToString(separator = "&") { (key, value) ->
+                val valueString = value?.toString() ?: "null"
+                "$key=$valueString"
+            }
+        return listOf(method.value, path, normalizedQuery, suffix).joinToString("|")
+    }
 
     private fun HttpResponse.toPageInfo(): PageInfo? {
         val page = headers["X-Page"]?.toIntOrNull()

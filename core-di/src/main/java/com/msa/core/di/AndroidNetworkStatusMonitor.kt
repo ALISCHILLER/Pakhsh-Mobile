@@ -62,7 +62,8 @@ class AndroidNetworkStatusMonitor(context: Context) : Closeable, NetworkStatusMo
 
     override fun isOnline(): Boolean = _isConnected.value
 
-    fun refresh() {
+    private fun refresh() {
+        if (closed.get()) return
         updateStatus(determineStatus())
     }
 
@@ -100,8 +101,8 @@ class AndroidNetworkStatusMonitor(context: Context) : Closeable, NetworkStatusMo
         _isConnected.value = status is Status.Available
     }
 
-    private fun determineStatus(): Status {
-        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+    private fun determineStatus(): Status = runCatching {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
             val active = connectivityManager.activeNetwork ?: return Status.Unavailable
             val caps = connectivityManager.getNetworkCapabilities(active) ?: return Status.Unavailable
             if (!caps.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET)) {
@@ -130,5 +131,8 @@ class AndroidNetworkStatusMonitor(context: Context) : Closeable, NetworkStatusMo
                 }
             } ?: Status.Unavailable
         }
+    }.getOrElse {
+        Timber.w(it, "Failed to determine network availability")
+        Status.Unavailable
     }
 }

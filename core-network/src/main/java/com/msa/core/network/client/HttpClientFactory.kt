@@ -88,7 +88,9 @@ object HttpClientFactory {
                 url(config.baseUrl)
                 accept(ContentType.Application.Json)
                 contentType(ContentType.Application.Json)
-                headers.append(NetHeaders.ACCEPT_LANGUAGE, Locale.getDefault().toLanguageTag())
+                val acceptLanguage = config.acceptLanguage?.takeIf { it.isNotBlank() }
+                    ?: Locale.getDefault().toLanguageTag()
+                headers.append(NetHeaders.ACCEPT_LANGUAGE, acceptLanguage)
                 config.defaultHeaders.forEach { (key, value) -> headers.append(key, value) }
             }
 
