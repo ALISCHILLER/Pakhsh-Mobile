@@ -1,6 +1,6 @@
 [versions]
 agp = "8.13.0"
-kotlin = "2.0.21"
+kotlin = "2.2.21"
 
 coreKtx = "1.17.0"
 junit = "4.13.2"
@@ -14,7 +14,7 @@ composeBom = "2025.10.00"
 appcompat = "1.7.0"
 material3 = "1.3.2"
 material = "1.10.0"
-jetbrainsKotlinJvm = "2.0.21"
+jetbrainsKotlinJvm = "2.2.21"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }

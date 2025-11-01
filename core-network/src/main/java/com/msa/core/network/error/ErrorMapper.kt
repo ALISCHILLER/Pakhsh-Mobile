@@ -4,14 +4,16 @@ import com.msa.core.common.error.AppError
 import com.msa.core.common.text.StringProvider
 import com.msa.core.network.config.NetHeaders
 import io.ktor.client.plugins.ResponseException
-import io.ktor.client.plugins.contentnegotiation.ContentConvertException
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.Headers
 import io.ktor.http.HttpStatusCode
+import io.ktor.serialization.ContentConvertException
 import kotlinx.serialization.SerializationException
 import java.io.IOException
 import java.net.SocketTimeoutException as JvmSocketTimeout
 import io.ktor.client.network.sockets.SocketTimeoutException
+import kotlinx.coroutines.runBlocking
+
 
 interface ErrorMapper {
     fun fromException(t: Throwable, endpoint: String? = null): AppError
@@ -41,9 +43,9 @@ class ErrorMapperImpl(
         )
         is ResponseException -> {
             val response = t.response
-            val endpointUrl = endpoint ?: response.request.url.toString()
+            val endpointUrl = endpoint ?: response.call.request.url.toString()
             val headerMap = response.headers.asStringMap()
-            val body = runCatching { response.bodyAsText() }.getOrNull()
+            val body = runCatching { runBlocking { response.bodyAsText() } }.getOrNull()
             fromHttp(response.status.value, body, endpointUrl, headerMap)
         }
         else -> AppError.Unknown(strings.get(NetworkStringRes.ERR_UNKNOWN), cause = t, endpoint = endpoint)

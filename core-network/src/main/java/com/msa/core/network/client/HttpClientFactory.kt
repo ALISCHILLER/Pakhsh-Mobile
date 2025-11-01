@@ -13,6 +13,8 @@ import io.ktor.client.plugins.contentnegotiation.ContentNegotiation
 import io.ktor.client.plugins.defaultRequest
 import io.ktor.client.plugins.logging.LogLevel
 import io.ktor.client.plugins.logging.Logging
+import io.ktor.client.plugins.plugin
+import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.accept
 import io.ktor.client.request.header
 import io.ktor.client.request.headers
@@ -23,7 +25,6 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.contentType
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.util.AttributeKey
-import io.ktor.util.getOrNull
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.json.Json
@@ -45,7 +46,7 @@ object HttpClientFactory {
         cacheDir: File? = null
     ): HttpClient {
         val refreshMutex = Mutex()
-        return HttpClient(OkHttp) {
+        val client = HttpClient(OkHttp) {
             expectSuccess = false
 
             install(ContentNegotiation) {
@@ -94,43 +95,6 @@ object HttpClientFactory {
                 config.defaultHeaders.forEach { (key, value) -> headers.append(key, value) }
             }
 
-            if (tokenStore != null && authOrchestrator != null) {
-                install(HttpSend) {
-                    intercept { request ->
-                        val requestUrl = request.url.build().toString()
-                        val shouldAttach = authOrchestrator.shouldAttach(requestUrl)
-                        if (shouldAttach) {
-                            tokenStore.accessToken()?.let { access ->
-                                request.headers.remove(HttpHeaders.Authorization)
-                                request.headers.append(HttpHeaders.Authorization, authOrchestrator.authHeader(access))
-                            }
-                        }
-
-                        val initialCall = execute(request)
-                        val alreadyAttempted = request.attributes.getOrNull(RefreshAttemptKey) == true
-                        if (!shouldAttach || alreadyAttempted || initialCall.response.status != HttpStatusCode.Unauthorized) {
-                            return@intercept initialCall
-                        }
-
-                        request.attributes.put(RefreshAttemptKey, true)
-                        val refreshed = refreshMutex.withLock {
-                            val currentAccess = tokenStore.accessToken()
-                            val currentRefresh = tokenStore.refreshToken()
-                            authOrchestrator.refresh(currentAccess, currentRefresh)?.also { (access, refresh) ->
-                                tokenStore.updateTokens(access, refresh)
-                            }
-                        }
-
-                        if (refreshed != null) {
-                            request.headers.remove(HttpHeaders.Authorization)
-                            request.headers.append(HttpHeaders.Authorization, authOrchestrator.authHeader(refreshed.first))
-                            return@intercept execute(request)
-                        }
-
-                        initialCall
-                    }
-                }
-            }
 
             engine {
                 config {
@@ -155,6 +119,45 @@ object HttpClientFactory {
                 }
             }
         }
+
+
+        if (tokenStore != null && authOrchestrator != null) {
+            client.plugin(HttpSend).intercept { request: HttpRequestBuilder ->
+                val requestUrl = request.url.buildString()
+                val shouldAttach = authOrchestrator.shouldAttach(requestUrl)
+                if (shouldAttach) {
+                    tokenStore.accessToken()?.let { access ->
+                        request.headers.remove(HttpHeaders.Authorization)
+                        request.headers.append(HttpHeaders.Authorization, authOrchestrator.authHeader(access))
+                    }
+                }
+
+                val initialCall = execute(request)
+                val alreadyAttempted = request.attributes.getOrNull(RefreshAttemptKey) == true
+                if (!shouldAttach || alreadyAttempted || initialCall.response.status != HttpStatusCode.Unauthorized) {
+                    return@intercept initialCall
+                }
+
+                request.attributes.put(RefreshAttemptKey, true)
+                val refreshed = refreshMutex.withLock {
+                    val currentAccess = tokenStore.accessToken()
+                    val currentRefresh = tokenStore.refreshToken()
+                    authOrchestrator.refresh(currentAccess, currentRefresh)?.also { (access, refresh) ->
+                        tokenStore.updateTokens(access, refresh)
+                    }
+                }
+
+                if (refreshed != null) {
+                    request.headers.remove(HttpHeaders.Authorization)
+                    request.headers.append(HttpHeaders.Authorization, authOrchestrator.authHeader(refreshed.first))
+                    return@intercept execute(request)
+                }
+
+                initialCall
+            }
+        }
+
+        return client
     }
 
     private fun jsonSerializer(): Json = Json {

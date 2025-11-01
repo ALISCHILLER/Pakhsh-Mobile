@@ -20,8 +20,8 @@ security    = "1.1.0"          # androidx.security:security-crypto
 gson        = "2.13.1"
 
 # Tooling versions that MUST match Kotlin line:
-ksp = "2.0.21-1.0.27"
-kotlinxSerialization= "2.0.21" # پلاگین Serialization باید هم‌لاین Kotlin باشد
+ksp = "2.2.21-2.0.4"
+kotlinxSerialization= "2.2.21" # پلاگین Serialization باید هم‌لاین Kotlin باشد
 kotlinxSerializationRuntime = "1.7.3"
 
 [libraries]
